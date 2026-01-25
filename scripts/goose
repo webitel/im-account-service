@@ -1,0 +1,30 @@
+#!/bin/sh
+# set -x
+
+### [global] environment ###
+
+set -a
+# env $( grep -Po '^[^;#]+' scripts/.env ) echo \$MICRO_SERVER
+# source ./scripts/.env
+. ./scripts/.env
+set +a
+
+### [local] environment ###
+
+# foo=bar
+
+### [service] command ###
+
+cmd="goose"
+
+#set -x
+# $cmd --server_address=$host:$port server $@
+PGPASSFILE=.pgpass \
+PGSERVICEFILE=.pg_service.conf \
+PGSERVICE=im.docker.lo \
+\
+GOOSE_DRIVER=postgres \
+GOOSE_DBSTRING="service=im.docker.lo" \
+GOOSE_MIGRATION_DIR=migrations \
+\
+$cmd -table im_account_schema_version $@

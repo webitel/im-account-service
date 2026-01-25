@@ -1,0 +1,33 @@
+# configuration.yaml
+
+service:
+  id: "im-account-service-01"
+  addr: "127.0.0.1:0"
+  secret: "your-very-secure-secret-key"
+
+
+log:
+  level: "info"
+  json: true
+  otel: false
+  # file: "../debug/service.log"
+  console: true
+
+postgres:
+  #dsn: "service=im.docker.lo"
+  dsn: "postgres://postgres:webitel@127.0.0.1:6432/webitel&sslmode=disable&connect_timeout=10"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+
+consul:
+  addr: "127.0.0.1:8500"
+  grpc_addr: "127.0.0.1:9999"
+
+
+pubsub:
+  broker_url: "amqp://guest:guest@127.0.0.1:5672"
+  broker_driver: "rabbitmq"
