@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/webitel/im-account-service/infra/tls"
 	"go.uber.org/fx"
 
 	"github.com/webitel/im-account-service/cmd"
@@ -25,6 +26,7 @@ func NewApp(cfg *config.Config) *fx.App {
 			cmd.ProvidePubSub,
 			cmd.ProvideNewDBConnection,
 		),
+		tls.Module,
 		postgres.Module,
 		// service.Module,
 		grpcsrv.Module,
