@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: internal/admin/v1/service_apps.proto
+// source: service/admin/v1/service_apps.proto
 
 package adminpb
 
@@ -19,10 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Applications_SearchApps_FullMethodName = "/webitel.im.internal.admin.v1.Applications/SearchApps"
-	Applications_DeleteApps_FullMethodName = "/webitel.im.internal.admin.v1.Applications/DeleteApps"
-	Applications_CreateApp_FullMethodName  = "/webitel.im.internal.admin.v1.Applications/CreateApp"
-	Applications_UpdateApp_FullMethodName  = "/webitel.im.internal.admin.v1.Applications/UpdateApp"
+	Applications_SearchApps_FullMethodName = "/webitel.im.service.admin.v1.Applications/SearchApps"
+	Applications_DeleteApps_FullMethodName = "/webitel.im.service.admin.v1.Applications/DeleteApps"
+	Applications_CreateApp_FullMethodName  = "/webitel.im.service.admin.v1.Applications/CreateApp"
+	Applications_UpdateApp_FullMethodName  = "/webitel.im.service.admin.v1.Applications/UpdateApp"
 )
 
 // ApplicationsClient is the client API for Applications service.
@@ -216,7 +216,7 @@ func _Applications_UpdateApp_Handler(srv interface{}, ctx context.Context, dec f
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Applications_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "webitel.im.internal.admin.v1.Applications",
+	ServiceName: "webitel.im.service.admin.v1.Applications",
 	HandlerType: (*ApplicationsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -237,5 +237,5 @@ var Applications_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/admin/v1/service_apps.proto",
+	Metadata: "service/admin/v1/service_apps.proto",
 }
