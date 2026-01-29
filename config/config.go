@@ -20,10 +20,22 @@ type Config struct {
 }
 
 type ServiceConfig struct {
-	Id        string `mapstructure:"id"`
-	Address   string `mapstructure:"addr"`
-	SecretKey string `mapstructure:"secret"`
-	// Discovery string `mapstructure:"discovery"`
+	Id         string           `mapstructure:"id"`
+	Address    string           `mapstructure:"addr"`
+	Connection ConnectionConfig `mapstructure:"conn"`
+}
+
+type ConnectionConfig struct {
+	TLSConfig
+
+	VerifyCerts bool      `mapstructure:"verify_certs"`
+	Client      TLSConfig `mapstructure:"client"`
+}
+
+type TLSConfig struct {
+	CA   string `mapstructure:"ca"`
+	Cert string `mapstructure:"cert"`
+	Key  string `mapstructure:"key"`
 }
 
 type LogConfig struct {
@@ -112,7 +124,6 @@ func defineFlags() {
 
 	pflag.String("service.id", "", "Service ID")
 	pflag.String("service.addr", "localhost:8080", "Service address")
-	pflag.String("service.secret", "", "Service secret key")
 
 	pflag.String("log.level", "info", "Log level")
 	pflag.Bool("log.json", false, "Log in JSON format")
@@ -122,17 +133,23 @@ func defineFlags() {
 	pflag.String("redis.addr", "localhost:6379", "Redis address")
 	pflag.String("consul.addr", "localhost:8500", "Consul address")
 	pflag.String("pubsub.broker_url", "", "PubSub broker URL")
+	pflag.String("pubsub.broker_driver", "amqp", "PubSub broker driver")
+
+	defineConnectionFlags()
 }
 
 func (c *Config) validate() error {
 	if c.Service.Id == "" {
-		return fmt.Errorf("config: service.id is required (use --service.id or ID env)")
+		return fmt.Errorf("config: service.id is required (use --service.id or SERVICE_ID env)")
 	}
-	if c.Service.SecretKey == "" {
-		return fmt.Errorf("config: service.secret is required (use --service.secret or SERVICE_SECRET env)")
-	}
+
 	if c.Service.Address == "" {
 		return fmt.Errorf("config: service.addr is required")
+	}
+
+	err := validateConnectionConfig(c.Service.Connection)
+	if err != nil {
+		return err
 	}
 
 	if c.Log.Level == "" {
@@ -159,5 +176,31 @@ func (c *Config) validate() error {
 		return fmt.Errorf("config: pubsub.broker_url must start with amqp:// or amqps://")
 	}
 
+	return nil
+}
+
+func validateConnectionConfig(conn ConnectionConfig) error {
+	if conn.VerifyCerts {
+		if conn.CA == "" {
+			return fmt.Errorf("config: service.conn.ca is required when verify_certs is true")
+		}
+		if conn.Cert == "" {
+			return fmt.Errorf("config: service.conn.cert is required when verify_certs is true")
+		}
+		if conn.Key == "" {
+			return fmt.Errorf("config: service.conn.key is required when verify_certs is true")
+		}
+	}
+	return nil
+}
+
+func defineConnectionFlags() error {
+	pflag.String("service.conn.verify_certs", "true", "Determine whether to verify certificates (false only for development)")
+	pflag.String("service.conn.ca", "", "Server CA certificate path")
+	pflag.String("service.conn.key", "", "Server certificate key path")
+	pflag.String("service.conn.cert", "", "Server certificate path")
+	pflag.String("service.conn.client.ca", "", "Client CA certificate path")
+	pflag.String("service.conn.client.key", "", "Client certificate key path")
+	pflag.String("service.conn.client.cert", "", "Client certificate path")
 	return nil
 }
