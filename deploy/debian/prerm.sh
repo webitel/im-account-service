@@ -2,7 +2,7 @@
 
 set -e
 
-SERVICE_NAME="im-account-service"
+SERVICE_NAME="webitel-im-account"
 
 stop_service() {
     if [ -x "/bin/systemctl" ]; then
