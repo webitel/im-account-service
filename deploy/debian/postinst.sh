@@ -2,7 +2,7 @@
 
 set -e
 
-SERVICE_NAME="im-account-service"
+SERVICE_NAME="webitel-im-account"
 
 USER_NAME="webitel"
 GROUP_NAME="webitel"
@@ -13,7 +13,7 @@ create_user() {
         addgroup --system "$GROUP_NAME"
     fi
 
-    if ! getent passwd "$USER_NAME" >/dev/null 2&1; then
+    if ! getent passwd "$USER_NAME" >/dev/null 2>&1; then
         echo "Creating user: $USER_NAME"
         adduser --system --no-create-home --ingroup "$GROUP_NAME" \
                 --disabled-password --disabled-login \
@@ -35,10 +35,10 @@ handle_service_restart() {
     systemctl restart "$SERVICE_NAME" || true
 }
 
-if [ "$1" == "configure"]; then
+if [ "$1" == "configure" ]; then
     echo "Configuring $SERVICE_NAME..."
 
-    if [ -z "$2"]; then
+    if [ -z "$2" ]; then
         create_user
         configure_systemd
 

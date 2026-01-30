@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE_NAME="im-account-service"
+SERVICE_NAME="webitel-im-account"
 
 stop_service_on_upgrade() {
     if [ -x "/bin/systemctl" ]; then
