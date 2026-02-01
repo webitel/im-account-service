@@ -16,13 +16,13 @@ const (
 )
 
 type Factory struct {
-	url    string
+	dsn    string
 	logger watermill.LoggerAdapter
 }
 
-func NewFactory(url string, logger watermill.LoggerAdapter) (*Factory, error) {
+func NewFactory(dsn string, logger watermill.LoggerAdapter) (*Factory, error) {
 	return &Factory{
-		url:    url,
+		dsn:    dsn,
 		logger: logger,
 	}, nil
 }
@@ -33,9 +33,10 @@ func (f *Factory) BuildSubscriber(name string, subConfig *factory.SubscriberConf
 	}
 	conf := amqp.Config{
 		Connection: amqp.ConnectionConfig{
-			AmqpURI: f.url,
+			AmqpURI: f.dsn,
 		},
-		Marshaler: amqp.DefaultMarshaler{},
+		// Marshaler: amqp.DefaultMarshaler{},
+		Marshaler: Marshaler{},
 		Exchange: amqp.ExchangeConfig{
 			GenerateName: func(s string) string {
 				return subConfig.Exchange.Name
@@ -58,6 +59,7 @@ func (f *Factory) BuildSubscriber(name string, subConfig *factory.SubscriberConf
 			Consumer:  name,
 			Exclusive: subConfig.ExclusiveConsumer,
 		},
+		TopologyBuilder: &amqp.DefaultTopologyBuilder{},
 	}
 	return amqp.NewSubscriber(conf, f.logger)
 }
@@ -65,7 +67,7 @@ func (f *Factory) BuildSubscriber(name string, subConfig *factory.SubscriberConf
 func (f *Factory) BuildPublisher(pubConfig *factory.PublisherConfig) (message.Publisher, error) {
 	conf := amqp.Config{
 		Connection: amqp.ConnectionConfig{
-			AmqpURI: f.url,
+			AmqpURI: f.dsn,
 		},
 		Marshaler: amqp.DefaultMarshaler{},
 		Exchange: amqp.ExchangeConfig{

@@ -2,17 +2,19 @@ package cmd
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	sfmt "github.com/samber/slog-formatter"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	"github.com/webitel/im-account-service/config"
@@ -302,35 +304,46 @@ func ProvideSD(cfg *config.Config, log *slog.Logger, lc fx.Lifecycle) (discovery
 	return provider, nil
 }
 
-func ProvidePubSub(cfg *config.Config, l *slog.Logger, lc fx.Lifecycle) (pubsub.Provider, error) {
+func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle) (pubsub.Provider, error) {
 
 	var (
-		pubsubConfig  = cfg.Pubsub
-		loggerAdapter = watermill.NewSlogLogger(l)
+		pubsubConfig  = config.Pubsub
+		loggerAdapter = watermill.NewSlogLogger(logger)
 		pubsubFactory factory.Factory
 		err           error
 	)
 
-	switch pubsubConfig.Driver {
-	case "amqp":
+	driver := strings.ToLower(pubsubConfig.Driver)
+	switch driver {
+	case "amqp", "rabbitmq":
 		pubsubFactory, err = amqp.NewFactory(pubsubConfig.URL, loggerAdapter)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		return nil, errors.New("pubsub driver not supported")
+		return nil, fmt.Errorf("broker [%s] not supported", driver)
 	}
 
 	router, err := message.NewRouter(message.RouterConfig{}, loggerAdapter)
 	if err != nil {
 		return nil, err
 	}
-	lc.Append(fx.Hook{
+
+	router.AddMiddleware(middleware.Recoverer)
+
+	runtime.Append(fx.Hook{
+		OnStart: func(ctx context.Context) (err error) {
+			// return router.Run(ctx)
+
+			// This call is blocking while the router is running.
+			go func() {
+				err = router.Run(ctx)
+			}()
+			<-router.Running()
+			return // err
+		},
 		OnStop: func(ctx context.Context) error {
 			return router.Close()
-		},
-		OnStart: func(ctx context.Context) error {
-			return router.Run(ctx)
 		},
 	})
 

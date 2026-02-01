@@ -31,10 +31,13 @@ const (
 //
 // Applications (Admin) Service
 type ApplicationsClient interface {
-	// Get Application(s) list
+	// Search for Application(s)
 	SearchApps(ctx context.Context, in *SearchAppRequest, opts ...grpc.CallOption) (*ApplicationList, error)
+	// Revoke / Delete Application(s)
 	DeleteApps(ctx context.Context, in *DeleteAppRequest, opts ...grpc.CallOption) (*ApplicationList, error)
+	// Create NEW Application
 	CreateApp(ctx context.Context, in *CreateAppRequest, opts ...grpc.CallOption) (*Application, error)
+	// Update Application configuration
 	UpdateApp(ctx context.Context, in *UpdateAppRequest, opts ...grpc.CallOption) (*Application, error)
 }
 
@@ -92,10 +95,13 @@ func (c *applicationsClient) UpdateApp(ctx context.Context, in *UpdateAppRequest
 //
 // Applications (Admin) Service
 type ApplicationsServer interface {
-	// Get Application(s) list
+	// Search for Application(s)
 	SearchApps(context.Context, *SearchAppRequest) (*ApplicationList, error)
+	// Revoke / Delete Application(s)
 	DeleteApps(context.Context, *DeleteAppRequest) (*ApplicationList, error)
+	// Create NEW Application
 	CreateApp(context.Context, *CreateAppRequest) (*Application, error)
+	// Update Application configuration
 	UpdateApp(context.Context, *UpdateAppRequest) (*Application, error)
 	mustEmbedUnimplementedApplicationsServer()
 }

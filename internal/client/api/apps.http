@@ -1,0 +1,120 @@
+
+# {{+
+#   const token = "test"
+#   exports.defaultHeaders = {
+#     'Content-Type': 'text/html',
+#     'Authorization': `Bearer ${token}`
+#   };
+# }}
+
+# @import ./proto.http
+proto < {{webitel_proto}}/im/service/admin/v1/service_apps.proto
+includeDirs: [`${webitel_proto}/im`,`/usr/local/include`]
+keepCase: true
+longs: String
+enums: String
+defaults: false
+oneofs: true
+
+# @host=172.17.0.1:26010
+
+###
+
+# @debug
+# @name clientApp
+GRPC /webitel.im.service.admin.v1.Applications/SearchApps
+
+{
+  "dc": 1
+}
+
+@client_id={{JSON.parse(response.body).data[0].id}}
+
+# {{+after
+#   // console.info(`gRPC response is: ${response.body}`);
+#   console.info(`gRPC response is:`, JSON.parse(response.body).data[0].id);
+#   // const responseMessagesObj = JSON.parse(response.body);
+#   // Perform assertions or use the data
+# }}
+
+###
+
+# debug
+# @name createApp
+GRPC /webitel.im.service.admin.v1.Applications/CreateApp
+
+{
+  "app": {
+    "dc": "1",
+    "name": "My First App",
+    "about": "Development purpose",
+    "client": {
+      "ua": [
+        "grpcurl/*",
+        "Mozilla/*"
+      ],
+      "net": {
+        "cidr": [
+          "127.0.0.1/32",
+          "172.17.0.0/16",
+          "10.10.10.0/28"
+        ]
+      },
+      "web": {
+        "origin": [
+          "localhhost:8080"
+        ]
+      }
+    },
+    "service": {
+      "secret": "",
+      "send_update": {
+        "grpc": {
+          "host": "172.17.0.1:26125",
+          "addr": ""
+        },
+        "events": [
+          "*"
+        ],
+        "token": ""
+      },
+      "push_service": {
+        "web": {
+          "proxy": "http://172.17.0.1:26124/push/web",
+          "token": ""
+        },
+        "fcm": {
+          "proxy": "http://172.17.0.1:26124/push/fcm",
+          "account": ""
+        }
+      }
+    },
+    "contacts": {
+      "auth": {
+        "issuers": [
+          "https://example.com/people",
+          "https://dev.webitel.com/portal",
+          "https://example.org/oauth/clients"
+        ],
+        "protos": {
+          "https://example.com/people": "example",
+          "https://dev.webitel.com/portal": "portal",
+          "https://example.org/oauth/clients": "example"
+        },
+        "jwks": "",
+        "jwks_uri": "",
+        "jwt_identity": {
+          "sub": "iid|uid"
+        }
+      },
+      "list": [
+        {
+          "proto": "example"
+        },
+        {
+          "user_id": "bot_account_id_that_should_be_visible_for_this_app"
+        }
+      ]
+    }
+  }
+}

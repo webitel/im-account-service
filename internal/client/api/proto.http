@@ -1,0 +1,10 @@
+
+@webitel_proto=../../../../protos
+
+{{
+  const path = require('path');
+  exports.webitel_proto = path.resolve(__dirname, `${webitel_proto}`);
+  // console.log('${webitel_proto}: ' + exports.webitel_proto); // path.resolve(__dirname, `${webitel_proto}`));
+}}
+
+@webitel_proto={{webitel_proto}}

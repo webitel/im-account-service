@@ -56,12 +56,23 @@ func (JwtIdentityAuth) Auth(rpc *Context) (acr any, err error) {
 		return false, err
 	}
 
+	// [REQUIRE]: App Authorization to prove token issuer
+	err = AppAuthorization(true)(rpc)
+
+	if err != nil {
+		// Guess this is JWT token compact form
+		// but no App to prove the token issuer
+		return true, err
+	}
+
 	var scheme interface { // scheme, _ := rpc.App.(interface {
 		// 1. Validate JWT signature
 		// 2. Form & validate (Contact) Identity from token.(Payload)
 		// 3. Upsert Contact List [re]source with the latest data received
 		AcceptJWT(ctx context.Context, token *jws.Message) (*model.Contact, error)
-	} // )
+	} // = rpc.App // )
+
+	// scheme, _ := rpc.App // .(scheme)
 
 	if scheme == nil {
 		// App does NOT support OAuth authentication scheme

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -83,7 +84,8 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 		where = append(where, "a.device_id = @device_id")
 	}
 	if req.ContactId != nil {
-		// TODO
+		args["contact_id"] = ((*ContactId)(req.ContactId))
+		where = append(where, "a.contact_id = @contact_id")
 	}
 	if req.PushToken != nil {
 		cond := "NOTNULL"
@@ -129,7 +131,7 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 			// name
 			func(row *model.Authorization) any { return &row.Name },
 			// app_id
-			func(row *model.Authorization) any { return &row.AppId },
+			func(row *model.Authorization) any { return (*zeronull.Text)(&row.AppId) },
 			// ip
 			func(row *model.Authorization) any { return pgtypex.ScanNetIP(&row.IP) },
 			// user_agent
@@ -175,10 +177,10 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 				row.Grant = &model.AccessToken{
 					// Id: uuid.MustParse(row.Id),
 				}
-				return &row.Grant.Type
+				return (*zeronull.Text)(&row.Grant.Type)
 			},
 			// grant.token
-			func(row *model.Authorization) any { return &row.Grant.Token }, // NOT NULL
+			func(row *model.Authorization) any { return (*zeronull.Text)(&row.Grant.Token) }, // NOT NULL
 			// grant.refresh
 			func(row *model.Authorization) any { return (*zeronull.Text)(&row.Grant.Refresh) }, // NULL
 			// grant.scope
@@ -484,30 +486,109 @@ func (c *SessionStore) SearchV2(req store.ListSessionRequest) (*model.SessionLis
 	return &res, nil
 }
 
-func (c *SessionStore) RegisterDevice(ctx context.Context, sessionId string, pushToken *model.PushToken) error {
+// RegisterDevice PUSH [req.Token] for given session [req.Authorization.Id]
+// If not specified try to create NEW session for ( device + contact ) authorization
+// without [session.token] access grant and register device PUSH [req.Token] for it
+func (c *SessionStore) RegisterDevice(req store.RegisterDeviceRequest) error {
 
 	jsonbCodec := &protojsonCodec
-	jsonbToken, err := jsonbCodec.Marshal(pushToken)
+	jsonbToken, err := jsonbCodec.Marshal(req.Token)
 	if err != nil {
 		return err
 	}
 
+	session := &req.Authorization
+	// var (
+	// 	createId string
+	// 	updateId = session.Id
+	// )
+	// if updateId == "" {
+	// 	// [NOTE]: Not an internal session -but- RPC authorization succeed
+	// 	// - Webitel ; end-User session [access_token]
+	// 	// - JWT ; app::contact issued
+	// 	createId = uuid.NewString()
+	// }
+
+	// WITH device_others AS
+	// (
+	// 	SELECT
+	// 	FROM im_account.session
+	// 	LEFT JOIN UNNEST(other_uids)
+	// 	WHERE device_id = @device_id
+	// )
+	// , others AS
+	// (
+	// 	UPDATE im_account.session
+	// 	SET push_token = @push_token
+	// 	WHERE device_id = @device_id
+	// 	  AND contact_id
+	// 	RETURNING true
+	// )
+
 	query, args := `
-	UPDATE im_account.session
-	SET push_token = @push_token
-	WHERE id = @session_id
-	RETURNING true
+	WITH updated AS
+	(
+		UPDATE im_account.session SET
+		  ip = coalesce(@ip, ip)   -- last address
+		, user_agent = @user_agent -- last descriptor
+		, push_token = @push_token -- register
+		WHERE id = @id -- authorized by internal session.id
+		RETURNING id -- true
+	)
+	, created AS
+	(
+		INSERT INTO im_account.session AS w
+		(
+			dc, ip, "name"
+		, app_id, device_id, user_agent, push_token
+		, contact_id
+		-- , metadata
+		, created_at
+		)
+		SELECT
+			@dc, @ip, @name
+		, @app_id, @device_id, @user_agent, @push_token
+		, @contact_id
+		-- , @metadata
+		, @created_at
+		WHERE @id ISNULL
+		ON CONFLICT (device_id, contact_id)
+		DO NOTHING -- No @session_id is given -but- such ( device + contact ) exists ; hacking ?
+		-- DO UPDATE SET --
+		RETURNING id -- generated
+	)
+	SELECT
+		(SELECT true FROM updated)
+	, (SELECT id FROM created)
 	`, pgx.NamedArgs{
-		"session_id": sessionId,                   // UUID
+		"dc":         session.Dc,
+		"id":         zeronull.Text(session.Id), // UUID ; NULL
+		"ip":         pgtypex.NetIPValue(session.IP),
+		"name":       model.Coalesce(session.Name, model.SessionName(&session.Device)),
+		"app_id":     zeronull.Text(session.AppId), // UUID ; NULL
+		"device_id":  session.Device.Id,
+		"user_agent": session.Device.App.String,
+		"contact_id": (*ContactId)(session.Contact),
+		// "metadata":   metadata, // json.Marshal
+		"created_at": pgtypex.TimestamptzValue(&session.Date),
+
 		"push_token": json.RawMessage(jsonbToken), // protojson.Marshal
+		// "other_uids": ((pgtype.FlatArray[*ContactId])(req.OtherUids)),
 	}
 
 	// PERFORM
-	var ok bool
+	var ok pgtype.Bool
 	err = c.db.Client().QueryRow(
-		ctx, query, args,
+		req.Context, query, args,
 	).Scan(
-		&ok, // TODO: check affected == 1 !
+		&ok, pgtypex.ScanTextFunc(func(src pgtype.Text) error {
+			if session.Id != "" {
+				return fmt.Errorf("device.register(): something went wrong")
+			}
+			// CREATED
+			session.Id = src.String
+			return nil
+		}),
 	)
 
 	if err != nil {
@@ -516,19 +597,19 @@ func (c *SessionStore) RegisterDevice(ctx context.Context, sessionId string, pus
 
 	// defer rows.Close()
 
-	if !ok {
-		// NOT Affected !
-		return pgx.ErrNoRows
-	}
+	// if !ok {
+	// 	// NOT Affected !
+	// 	return pgx.ErrNoRows
+	// }
 
 	// [ OK ]
 	return nil
 }
 
-func (c *SessionStore) UnregisterDevice(ctx context.Context, sessionId string, pushToken *model.PushToken) error {
+func (c *SessionStore) UnregisterDevice(req store.UnregisterDeviceRequest) error {
 
 	jsonbCodec := &protojsonCodec
-	jsonbToken, err := jsonbCodec.Marshal(pushToken)
+	jsonbToken, err := jsonbCodec.Marshal(req.Token)
 	if err != nil {
 		return err
 	}
@@ -551,7 +632,7 @@ func (c *SessionStore) UnregisterDevice(ctx context.Context, sessionId string, p
 	  (SELECT NULLIF(push_token, @push_token) ISNULL FROM auth)
 	-- , (SELECT count(*) FROM done)
 	`, pgx.NamedArgs{
-		"session_id": sessionId,                   // UUID
+		"session_id": req.SessionId,                   // UUID
 		"push_token": json.RawMessage(jsonbToken), // protojson.Marshal
 	}
 
@@ -562,7 +643,7 @@ func (c *SessionStore) UnregisterDevice(ctx context.Context, sessionId string, p
 	)
 
 	err = c.db.Client().QueryRow(
-		ctx, query, args,
+		req.Context, query, args,
 	).Scan(
 		&ok, // &rows,
 	)

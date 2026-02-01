@@ -12,8 +12,9 @@ type SessionStore interface {
 	Create(ctx context.Context, session *model.Authorization) error
 	Delete(ctx context.Context, sessionId string) error
 
-	RegisterDevice(ctx context.Context, sessionId string, pushToken *model.PushToken) error
-	UnregisterDevice(ctx context.Context, sessionId string, pushToken *model.PushToken) error
+	RegisterDevice(RegisterDeviceRequest) error
+	UnregisterDevice(UnregisterDeviceRequest) error
+
 }
 
 type ListSessionRequest struct {
@@ -41,3 +42,38 @@ type CreateSessionRequest struct {
 	ClientId string // [X-Webitel-Client] ; App.ID
 	Token    string // [X-Webitel-Access]
 }
+
+type RegisterDeviceRequest struct {
+	// Context
+	context.Context
+	// end-User (Contact) Authorization
+	model.Authorization
+	// Device token subscription
+	Token *model.PushToken
+	// List of end-User (Contact) identifiers
+	// of other users currently using the Device client.
+	//
+	// Mostly this field will be blank
+	// unless the device client (app)
+	// does support multi-sessions.
+	OtherUids []*model.ContactId
+}
+
+type UnregisterDeviceRequest struct {
+	// Context
+	context.Context
+	// Session.(Authorization).Id
+	SessionId string
+	// Device (current) token subscription
+	// .. to prove that session.Device knows [PUSH] token to be unsubscribed
+	Token *model.PushToken
+	// List of end-User (Contact) identifiers
+	// of other users currently using the Device client.
+	//
+	// Mostly this field will be blank
+	// unless the device client (app)
+	// does support multi-sessions.
+	OtherUids []*model.ContactId
+}
+
+

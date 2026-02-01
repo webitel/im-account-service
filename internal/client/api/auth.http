@@ -1,0 +1,109 @@
+
+# @import ./proto.http
+proto < {{webitel_proto}}/im/service/auth/v1/service_account.proto
+includeDirs: [`${webitel_proto}/im`,`/usr/local/include`]
+keepCase: true
+longs: String
+enums: String
+defaults: false
+oneofs: true
+
+@client_id=
+@api_token=
+
+###
+
+# @name inspect
+GRPC /webitel.im.service.auth.v1.Account/Inspect
+x-webitel-device: {{device_id}}
+x-webitel-access: {{api_token}}
+
+{
+
+}
+
+###
+
+# @debug
+# @name login
+GRPC /webitel.im.service.auth.v1.Account/Token
+x-webitel-device: {{device_id}}
+x-webitel-client: {{client_id}}
+
+{
+  "state": "my_app_client_login_state_id",
+  "scope": [
+    "send_messages",
+    "edit_messages"
+  ],
+  "clientId": {{client_id}},
+  "identity": {
+    "iss": "https://example.com/people",
+    "sub": "j.doe",
+    "name": "John Doe",
+    "givenName": "John",
+    "middleName": "Edward",
+    "familyName": "Doe",
+    "birthdate": "",
+    "zoneinfo": "",
+    "profile": "",
+    "picture": "",
+    "gender": "male",
+    "locale": "uk-UA",
+    "email": "j.doe@example.com",
+    "emailVerified": false,
+    "phoneNumber": "",
+    "phoneNumberVerified": false
+  }
+}
+
+{{@response
+  exports.api_token = JSON.parse(response.body).token.access_token;
+}}
+
+###
+
+# @name devices
+GRPC /webitel.im.service.auth.v1.Account/GetAuthorizations
+x-webitel-device: {{device_id}}
+x-webitel-access: {{api_token}}
+{
+  "size": -1
+}
+
+###
+
+# @name register_device
+GRPC /webitel.im.service.auth.v1.Account/RegisterDevice
+x-webitel-device: {{device_id}}
+x-webitel-access: {{api_token}}
+
+{
+  "push": {
+    "fcm": "my_device_fcms_registration_token_fake"
+  }
+}
+
+###
+
+# @name unregister_device
+GRPC /webitel.im.service.auth.v1.Account/UnregisterDevice
+x-webitel-device: {{device_id}}
+x-webitel-access: {{api_token}}
+
+{
+  "push": {
+    "fcm": "my_device_fcms_registration_token_fake"
+  }
+}
+
+###
+
+# @name logout
+GRPC /webitel.im.service.auth.v1.Account/Logout
+x-webitel-device: {{device_id}}
+x-webitel-access: {{api_token}}
+
+{
+  
+}

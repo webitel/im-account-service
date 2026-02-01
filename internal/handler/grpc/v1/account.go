@@ -14,6 +14,7 @@ import (
 	"github.com/webitel/im-account-service/internal/handler"
 	"github.com/webitel/im-account-service/internal/model"
 	"github.com/webitel/im-account-service/internal/store"
+	adminpb "github.com/webitel/im-account-service/proto/gen/im/service/admin/v1"
 	v1 "github.com/webitel/im-account-service/proto/gen/im/service/auth/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -189,10 +190,10 @@ func (api *AccountService) Logout(ctx context.Context, req *v1.LogoutRequest) (*
 	rpc, err := api.srv.GetContext(
 		// RPC Operation Context
 		ctx,
-		// [X-Webitel-Client] ; REQUIRED
-		handler.AppAuthorization(true),
-		// [X-Webitel-Device] ; REQUIRED
-		handler.DeviceAuthorization(true),
+		// [X-Webitel-Client] ; parse once -if- given
+		handler.AppAuthorization(false),
+		// [X-Webitel-Device] ; parse once -if- given
+		handler.DeviceAuthorization(false),
 		// [X-Webitel-Access] ; REQUIRED
 		handler.EndUserAuthorization(true),
 	)
@@ -206,26 +207,38 @@ func (api *AccountService) Logout(ctx context.Context, req *v1.LogoutRequest) (*
 	session := rpc.Session
 	if session == nil || session.Id == "" {
 		// Not (internal) session authorization ! Not supported !
+		// No (internal) session track found ! Skip ..
+		return &v1.LogoutResponse{}, nil
 	}
 
-	switch authN := rpc.Auth.(type) {
-	// IM (internal) session !
-	case *model.AccessToken:
-		{
-			sessions := api.srv.Options().Sessions
-			err := sessions.Delete(rpc.Context, authN.Id.String())
-			if err != nil {
-				// something went wrong
-				return nil, err
-			}
-			// [ OK ]
-			return &v1.LogoutResponse{}, nil
-		}
-	}
+	// switch authN := rpc.Auth.(type) {
+	// // IM (internal) session !
+	// case *model.AccessToken:
+	// 	{
+	// 		sessions := api.srv.Options().Sessions
+	// 		err := sessions.Delete(rpc.Context, authN.Id.String())
+	// 		if err != nil {
+	// 			// something went wrong
+	// 			return nil, err
+	// 		}
+	// 		// [ OK ]
+	// 		return &v1.LogoutResponse{}, nil
+	// 	}
+	// // What abount Webitel -or- JWT authorizations ?
+	// }
 
-	// default:
-	return nil, handler.ErrTokenInvalid
-	// return api.UnimplementedAccountServer.Logout(ctx, req)
+	sessions := api.srv.Options().Sessions
+	err = sessions.Delete(rpc.Context, session.Id)
+	if err != nil {
+		// something went wrong
+		return nil, err
+	}
+	// [ OK ]
+	return &v1.LogoutResponse{}, nil
+
+	// // default:
+	// return nil, handler.ErrTokenInvalid
+	// // return api.UnimplementedAccountServer.Logout(ctx, req)
 }
 
 // Inspect [Authorization] Request
@@ -359,19 +372,22 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 	// 	return nil, handler.ErrAccountUnauthorized
 	// }
 
-	app := rpc.App
-	service := app.Proto().GetService().GetPushService()
+	var service *adminpb.PUSHServiceClient
+	if app := rpc.App; app != nil {
+		service = app.Proto().GetService().GetPushService()
+	} // else { .. Webitel end-User authorization .. }
+
 	switch req.Push.Token.(type) {
 	case *v1.PUSHSubscription_Fcm:
 		{
 			if service.GetFcm() == nil {
-				// not supported
+				// no client configuration == no support
 			}
 		}
 	case *v1.PUSHSubscription_Apn:
 		{
 			if service.GetApn() == nil {
-				// not supported
+				// no client configuration == no support
 			}
 		}
 	case *v1.PUSHSubscription_Web:
@@ -383,9 +399,15 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 
 	// PERFORM: register for current session
 	repo := api.srv.Options().Sessions
-	err = repo.RegisterDevice(
-		rpc.Context, rpc.Session.Id, req.Push,
-	)
+	// err = repo.RegisterDevice(
+	// 	rpc.Context, rpc.Session.Id, req.Push,
+	// )
+	err = repo.RegisterDevice(store.RegisterDeviceRequest{
+		Context:       rpc.Context,
+		Authorization: *rpc.Session,
+		OtherUids:     nil,
+		Token:         req.Push,
+	})
 
 	if err != nil {
 		return nil, err
@@ -442,33 +464,36 @@ func (api *AccountService) UnregisterDevice(ctx context.Context, req *v1.Unregis
 	// 	return nil, handler.ErrAccountUnauthorized
 	// }
 
-	app := rpc.App
-	service := app.Proto().GetService().GetPushService()
-	switch req.Push.Token.(type) {
-	case *v1.PUSHSubscription_Fcm:
-		{
-			if service.GetFcm() == nil {
-				// not supported
-			}
-		}
-	case *v1.PUSHSubscription_Apn:
-		{
-			if service.GetApn() == nil {
-				// not supported
-			}
-		}
-	case *v1.PUSHSubscription_Web:
-		{
-			// TODO
-		}
-	default:
-	}
+	// app := rpc.App
+	// service := app.Proto().GetService().GetPushService()
+	// switch req.Push.Token.(type) {
+	// case *v1.PUSHSubscription_Fcm:
+	// 	{
+	// 		if service.GetFcm() == nil {
+	// 			// not supported
+	// 		}
+	// 	}
+	// case *v1.PUSHSubscription_Apn:
+	// 	{
+	// 		if service.GetApn() == nil {
+	// 			// not supported
+	// 		}
+	// 	}
+	// case *v1.PUSHSubscription_Web:
+	// 	{
+	// 		// TODO
+	// 	}
+	// default:
+	// }
 
 	// PERFORM: deregister for current session
 	repo := api.srv.Options().Sessions
-	err = repo.UnregisterDevice(
-		rpc.Context, rpc.Session.Id, req.Push,
-	)
+	err = repo.UnregisterDevice(store.UnregisterDeviceRequest{
+		Context:   rpc.Context,
+		SessionId: rpc.Session.Id,
+		OtherUids: nil,
+		Token:     req.Push,
+	})
 
 	if err != nil {
 		return nil, err
@@ -520,13 +545,13 @@ func (api *AccountService) GetAuthorizations(ctx context.Context, req *v1.GetAut
 
 	if req.GetContact().GetInput() != nil {
 		switch input := req.GetContact().GetInput().(type) {
-		case *v1.InputContactId_Id:
+		case *v1.InputContact_Id:
 			{
 				lookup.ContactId = &model.ContactId{
 					Id: input.Id,
 				}
 			}
-		case *v1.InputContactId_Source:
+		case *v1.InputContact_Source:
 			{
 				lookup.ContactId = &model.ContactId{
 					Iss: input.Source.GetIss(),

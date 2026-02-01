@@ -15,19 +15,35 @@ import (
 
 	// "google.golang.org/grpc"
 	client_grpc "github.com/webitel/im-account-service/infra/client/grpc"
+	"github.com/webitel/im-account-service/infra/pubsub"
 )
 
 // Webitel Authorization (Service) Client
 type Client struct {
-	authz v1pb.AuthClient
+	// options
+	logger *slog.Logger
+	broker pubsub.Provider
+	// private
 	cache simplelru.LRUCache[string, *v1pb.Userinfo]
 	creds metadata.MD
+	authz v1pb.AuthClient
 }
 
-func NewClient(logger *slog.Logger, registry discovery.DiscoveryProvider, opts ...grpc.DialOption) (*Client, error) {
+func NewClient(
+
+	logger *slog.Logger,
+	registry discovery.DiscoveryProvider,
+	broker pubsub.Provider,
+	opts ...grpc.DialOption,
+
+) (
+
+	*Client, error,
+
+) {
 
 	const serviceName = "go.webitel.app"
-	client, err := client_grpc.NewServiceClient(
+	conn, err := client_grpc.NewServiceClient(
 		logger, registry, serviceName, opts...,
 	)
 
@@ -35,11 +51,20 @@ func NewClient(logger *slog.Logger, registry discovery.DiscoveryProvider, opts .
 		return nil, err
 	}
 
-	return &Client{
-		authz: v1pb.NewAuthClient(client),
-		cache: expirable.NewLRU[string, *v1pb.Userinfo](0, nil, time.Minute),
-		creds: serviceClientCredentials(),
-	}, nil
+	// err = subscribeUpdates(broker)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	client := &Client{
+		logger: logger,
+		broker: broker,
+		cache:  expirable.NewLRU[string, *v1pb.Userinfo](0, nil, time.Minute),
+		creds:  serviceClientCredentials(),
+		authz:  v1pb.NewAuthClient(conn),
+	}
+
+	return client, client.Subscribe(broker)
 }
 
 func serviceClientCredentials() metadata.MD {

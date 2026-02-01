@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -157,7 +158,8 @@ func indirect(v any) any {
 			for len(e) > 0 {
 				switch e[0].(type) {
 				case pgx.NamedArgs:
-					break optionLoop
+					// break optionLoop
+					return indirect(e[0]) // .(pgx.NamedArgs)
 				case pgx.QueryRewriter:
 				case pgx.QueryExecMode:
 				case pgx.QueryResultFormats:
@@ -172,6 +174,14 @@ func indirect(v any) any {
 				e[i] = indirect(v)
 			}
 			return e
+		}
+	case pgx.NamedArgs:
+		{
+			v2 := make(map[string]any, len(e))
+			for param, value := range e {
+				v2[param] = indirect(value)
+			}
+			return v2
 		}
 	default:
 		{
@@ -192,6 +202,13 @@ func indirect(v any) any {
 				vs, err := e.Value()
 				if err == nil {
 					return indirect(vs)
+				}
+				return err
+			}
+			if e, is := v.(json.Marshaler); is {
+				jsonb, err := e.MarshalJSON()
+				if err == nil {
+					return string(jsonb)
 				}
 				return err
 			}

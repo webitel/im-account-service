@@ -1,6 +1,8 @@
 package model
 
 import (
+	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -172,4 +174,8 @@ func (app *Application) JwtIdentity(message *jws.Message) (idToken *Contact, err
 	}
 
 	panic("not implemented")
+}
+
+func (app *Application) AcceptJWT(ctx context.Context, token *jws.Message) (*Contact, error) {
+	return nil, fmt.Errorf("app.AcceptJWT: not implemented yet")
 }

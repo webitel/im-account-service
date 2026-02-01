@@ -4,10 +4,15 @@ import (
 	"github.com/webitel/im-account-service/internal/model"
 )
 
+// [X-Webitel-Client] credentials
 func AppAuthorization(require bool) ContextFunc {
 	return func(rpc *Context) error {
 
+		// FIXME: If [require] app credentials, than device required also ?
+
+		// Try to authenticate [X-Webitel-Client] header credetnials
 		app, err := GetApplication(rpc)
+
 		if err != nil {
 			return err
 		}
@@ -20,10 +25,19 @@ func AppAuthorization(require bool) ContextFunc {
 			return ErrClientRequired
 		}
 
+		// TODO: AuthorizeApp(!)
 		rpc.Dc = app.GetDc()
 		rpc.App = app
 
-		return nil
+		// Gather [FROM] device (app::client) credentials
+		err = DeviceAuthorization(false)(rpc)
+
+		if err != nil {
+			return err
+		}
+
+		// CHECK: [app.client] constraints within device.(client) authroization
+		return authorizeClient(rpc.App, rpc.Device)
 	}
 }
 
@@ -62,16 +76,24 @@ func DeviceAuthorization(require bool) ContextFunc {
 	return func(rpc *Context) error {
 
 		if rpc.Device == nil {
-			// once
-			device, _ := model.GetDeviceAuthorization(rpc.Context)
-			rpc.Device = &device
+			// once: gather remote info
+			client, _ := model.GetDeviceAuthorization(rpc.Context)
+			rpc.Device = &client
 		}
 
-		if require && rpc.Device.Id == "" {
+		if rpc.Device.Id == "" && require {
 			return ErrDeviceRequired
 		}
 
-		return authorizeClient(rpc.App, rpc.Device)
+		return nil
+
+		// // if rpc.App != nil {
+		// // 	// CHECK: [app.client] constraints within device.(client) authroization
+		// // 	return authorizeClient(rpc.App, rpc.Device)
+		// // }
+
+		// // No App ! No constraints ..
+		// return nil
 	}
 }
 
