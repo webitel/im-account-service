@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net"
@@ -9,20 +10,27 @@ import (
 	"strconv"
 
 	"github.com/webitel/im-account-service/config"
+	infra_tls "github.com/webitel/im-account-service/infra/tls"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var Module = fx.Module(
 	"grpc_server", fx.Provide(
-		func(conf *config.Config, logger *slog.Logger, lc fx.Lifecycle) (*Server, error) {
+		func(config *config.Config, logger *slog.Logger, ssl *infra_tls.Config, runtime fx.Lifecycle) (*Server, error) {
 
-			srv, err := New(conf.Service.Address, logger)
+			var creds *tls.Config
+			if ssl != nil {
+				creds = ssl.Server
+			}
+
+			srv, err := New(config.Service.Address, logger, creds)
 			if err != nil {
 				return nil, err
 			}
 
-			lc.Append(fx.Hook{
+			runtime.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
 					go func() {
 						logger.Info(fmt.Sprintf("Server [grpc] Listening on %s:%d", srv.Host(), srv.Port()))
@@ -58,12 +66,21 @@ type Server struct {
 }
 
 // New provides a new gRPC server.
-func New(addr string, log *slog.Logger) (*Server, error) {
+func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 
-	s := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(),
+	serverOpts := []grpc.ServerOption{
+		// grpc.ChainUnaryInterceptor(),
 		grpc.StatsHandler(newServiceHandler(log)),
-	)
+	}
+
+	// Configure TLS if provided
+	if ssl != nil {
+		serverOpts = append(serverOpts, grpc.Creds(
+			credentials.NewTLS(ssl),
+		))
+	}
+
+	s := grpc.NewServer(serverOpts...)
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {

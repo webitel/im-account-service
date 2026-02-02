@@ -28,11 +28,17 @@ func ProvideTLSConfig(cfg *config.Config) (*Config, error) {
 		err        error
 	)
 
-	if !connConfig.VerifyCerts {
+	if !connConfig.VerifyCerts && connConfig.TLS.Cert == "" && connConfig.TLS.Key == "" {
+		conf.Server = nil
+		conf.Client = nil
 		return conf, nil
 	}
 
-	conf.Server, err = Load(connConfig.TLSConfig, authType)
+	if !connConfig.VerifyCerts {
+		authType = tls.NoClientCert
+	}
+
+	conf.Server, err = Load(connConfig.TLS, authType)
 	if err != nil {
 		return nil, err
 	}
@@ -45,22 +51,31 @@ func ProvideTLSConfig(cfg *config.Config) (*Config, error) {
 }
 
 func Load(connConfig config.TLSConfig, authType tls.ClientAuthType) (*tls.Config, error) {
+	if connConfig.Cert == "" || connConfig.Key == "" {
+		return nil, nil
+	}
+
 	cert, err := tls.LoadX509KeyPair(connConfig.Cert, connConfig.Key)
 	if err != nil {
 		return nil, err
 	}
 
-	caCert, err := os.ReadFile(connConfig.CA)
-	if err != nil {
-		return nil, err
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	return &tls.Config{
+	tlsConf := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientCAs:    caCertPool,
 		ClientAuth:   authType,
-		RootCAs:      caCertPool,
-	}, nil
+	}
+
+	if connConfig.CA != "" {
+		caCert, err := os.ReadFile(connConfig.CA)
+		if err != nil {
+			return nil, err
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		tlsConf.ClientCAs = caCertPool
+		tlsConf.RootCAs = caCertPool
+	}
+
+	return tlsConf, nil
 }

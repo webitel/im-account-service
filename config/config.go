@@ -26,8 +26,7 @@ type ServiceConfig struct {
 }
 
 type ConnectionConfig struct {
-	TLSConfig
-
+	TLS         TLSConfig `mapstructure:",squash"`
 	VerifyCerts bool      `mapstructure:"verify_certs"`
 	Client      TLSConfig `mapstructure:"client"`
 }
@@ -181,13 +180,13 @@ func (c *Config) validate() error {
 
 func validateConnectionConfig(conn ConnectionConfig) error {
 	if conn.VerifyCerts {
-		if conn.CA == "" {
+		if conn.TLS.CA == "" {
 			return fmt.Errorf("config: service.conn.ca is required when verify_certs is true")
 		}
-		if conn.Cert == "" {
+		if conn.TLS.Cert == "" {
 			return fmt.Errorf("config: service.conn.cert is required when verify_certs is true")
 		}
-		if conn.Key == "" {
+		if conn.TLS.Key == "" {
 			return fmt.Errorf("config: service.conn.key is required when verify_certs is true")
 		}
 	}
@@ -195,7 +194,7 @@ func validateConnectionConfig(conn ConnectionConfig) error {
 }
 
 func defineConnectionFlags() error {
-	pflag.String("service.conn.verify_certs", "true", "Determine whether to verify certificates (false only for development)")
+	pflag.Bool("service.conn.verify_certs", true, "Determine whether to verify certificates")
 	pflag.String("service.conn.ca", "", "Server CA certificate path")
 	pflag.String("service.conn.key", "", "Server certificate key path")
 	pflag.String("service.conn.cert", "", "Server certificate path")

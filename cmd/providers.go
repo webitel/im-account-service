@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -23,6 +24,7 @@ import (
 	"github.com/webitel/im-account-service/infra/pubsub/factory"
 	"github.com/webitel/im-account-service/infra/pubsub/factory/amqp"
 	grpc_srv "github.com/webitel/im-account-service/infra/server/grpc"
+	infra_tls "github.com/webitel/im-account-service/infra/tls"
 	"github.com/webitel/webitel-go-kit/infra/discovery"
 	_ "github.com/webitel/webitel-go-kit/infra/discovery/consul"
 	otelsdk "github.com/webitel/webitel-go-kit/infra/otel/sdk"
@@ -222,8 +224,14 @@ func (h *multiHandler) WithGroup(name string) slog.Handler {
 	return &multiHandler{handlers: newHandlers}
 }
 
-func ProvideGrpcServer(cfg *config.Config, l *slog.Logger, lc fx.Lifecycle) (*grpc_srv.Server, error) {
-	s, err := grpc_srv.New(cfg.Service.Address, l)
+func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_tls.Config, lc fx.Lifecycle) (*grpc_srv.Server, error) {
+	
+	var ssl *tls.Config
+	if creds != nil {
+		ssl = creds.Server
+	}
+	
+	s, err := grpc_srv.New(config.Service.Address, logger, ssl)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +239,7 @@ func ProvideGrpcServer(cfg *config.Config, l *slog.Logger, lc fx.Lifecycle) (*gr
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
 			if err := s.Shutdown(); err != nil {
-				l.Error(err.Error(), wlog.Err(err))
+				logger.Error(err.Error(), wlog.Err(err))
 				return err
 			}
 			return nil
