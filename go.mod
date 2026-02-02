@@ -1,6 +1,6 @@
 module github.com/webitel/im-account-service
 
-go 1.25.3
+go 1.25.5
 
 // indirect github.com/webitel/protos[@feat/messaging] v1.0.1-0.20260201130056-02376a48ef8f
 
@@ -38,7 +38,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
-	github.com/hashicorp/consul/api v1.33.0 // indirect
+	github.com/hashicorp/consul/api v1.33.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
@@ -96,7 +96,7 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20251219114945-08628fe6d5da
+	github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260202123728-94059b0e19be
 	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7
 	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.64.0
