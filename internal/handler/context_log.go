@@ -75,6 +75,14 @@ func (x *ctxLogValue) Attrs() (attrs []slog.Attr) {
 				"client.name", name,
 			))
 		}
+		if device.Push.GetToken() != nil {
+			push := device.Push.ProtoReflect()
+			attrs = append(attrs, slog.String(
+				"client.push", string(push.WhichOneof(
+					push.Descriptor().Oneofs().ByName("token"),
+				).Name()),
+			))
+		}
 	}
 
 	// [rpc.session.id] ; internal session authorization
@@ -164,12 +172,16 @@ func (rpc *Context) Log(ctx context.Context, level slog.Level, msg string, args 
 	rpc.Logger.Log(ctx, level, msg, args...)
 }
 
+func (rpc *Context) Info(msg string, args ...any) {
+	rpc.Log(rpc.Context, slog.LevelInfo, msg, args...)
+}
+
 func (rpc *Context) Warn(msg string, args ...any) {
-	rpc.Log(nil, slog.LevelWarn, msg, args...)
+	rpc.Log(rpc.Context, slog.LevelWarn, msg, args...)
 }
 
 func (rpc *Context) Debug(msg string, args ...any) {
-	rpc.Log(nil, slog.LevelDebug, msg, args...)
+	rpc.Log(rpc.Context, slog.LevelDebug, msg, args...)
 }
 
 // TODO: implement more level(s) below ..

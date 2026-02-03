@@ -47,16 +47,29 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 		return err, err
 	}
 
-	const issuerId = "im.webitel.org"
-	const contactType = "webitel"
+	// [X-Webitel-Client]: [app-id] ; OPTIONAL
+	err = AppAuthorization(false)(rpc)
+	if err != nil {
+		// Header specified, but invalid
+		return bearer, err
+	}
 
-	contact := &model.Contact{
+	app := rpc.App
+	if app != nil && app.GetDc() != debug.Dc {
+		// Cross-DC App (Client) usage attempt !
+		return bearer, ErrClientUnauthorized
+	}
+
+	const contactIssuer = "webitel"
+	const contactProto = "webitel"
+
+	endUser := &model.Contact{
 		Dc:       debug.Dc,
 		Id:       "", // unknown
-		Iss:      issuerId,
+		Iss:      contactIssuer,
 		Sub:      strconv.FormatInt(debug.UserId, 10),
 		App:      "", // none ; default: domain.(app)
-		Type:     contactType,
+		Type:     contactProto,
 		Name:     cmp.Or(debug.Name, debug.Username),
 		Username: debug.Username,
 		// GivenName:           "",
@@ -78,19 +91,32 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 		// DeletedAt:           &time.Time{},
 	}
 
+	if app == nil {
+		endUser.App = "domain" // default
+	} else {
+		endUser.App = app.ClientId()
+	}
+
 	if debug.UpdatedAt > 0 {
 		// epoch:milli
 		date := model.Timestamp.Date(debug.UpdatedAt)
-		contact.UpdatedAt = &date
+		endUser.UpdatedAt = &date
 	}
 
-	// Authorize end-User
-	rpc.Contact = contact
+	// Save / Update latest Contact profile info
+	err = rpc.Service.AddContact(rpc.Context, endUser)
+	if err != nil {
+		// failed to persist latest contact info
+		return bearer, err
+	}
+
+	// Authorize Webitel end-User
+	rpc.Contact = endUser
 
 	// Find session for ( device + contact )
 	err = DeviceAuthorization(false)(rpc)
 	if err != nil {
-		return bearer, nil
+		return bearer, err
 	}
 
 	rpc.Session = nil
@@ -102,12 +128,12 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 				// UNIQUE( device_id, contact_id )
 				req.DeviceId = rpc.Device.Id
 				req.ContactId = &model.ContactId{
-					Dc:  contact.Dc,
-					Id:  contact.Id,
-					Iss: contact.Iss,
-					Sub: contact.Sub,
+					Dc:  endUser.Dc,
+					Id:  endUser.Id,
+					Iss: endUser.Iss,
+					Sub: endUser.Sub,
 				}
-				req.Dc = contact.Dc
+				req.Dc = endUser.Dc
 				return nil
 			},
 		)
@@ -118,27 +144,32 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 		if session == nil {
 			// Not Found ; Init ..
 			session = &model.Authorization{
-				Dc:     contact.Dc,
 				Id:     "", // Not Found
+				Dc:     endUser.Dc,
 				IP:     rpc.Device.IP(),
 				Date:   rpc.Date,
 				Name:   model.SessionName(rpc.Device),
-				AppId:  "",            // app.(domain)
+				AppId:  "",            // UUID NULL ; app.(domain)
 				Device: (*rpc.Device), // shallowcopy
 				Contact: &model.ContactId{
-					Dc:  contact.Dc,
-					Id:  contact.Id,
-					Iss: contact.Iss,
-					Sub: contact.Sub,
+					Dc:  endUser.Dc,
+					Id:  endUser.Id,
+					Iss: endUser.Iss,
+					Sub: endUser.Sub,
 				},
 				Metadata: make(map[string]any),
 				Current:  false,
 				//Grant:    nil,
 			}
+
+			if app != nil {
+				session.AppId = app.ClientId() // UUID
+			}
 		}
 	}
-	// Webitel (session) correlation
-	// No token grant assignment
+	// Webitel (session) Authorization prepared
+	// No (internal) token [grant] assignment
+	rpc.Dc = session.Dc
 	rpc.Session = session
 
 	return bearer, nil

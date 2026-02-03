@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -389,6 +390,104 @@ func (c *SessionStore) Create(ctx context.Context, session *model.Authorization)
 	// [ OK ]
 	return nil // CREATED
 	// panic("not implemented") // TODO: Implement
+}
+
+func (c *SessionStore) Update(ctx context.Context, session *model.Authorization) error {
+
+	metadata := session.Metadata
+	if metadata != nil {
+		delete(metadata, "")
+		if len(metadata) == 0 {
+			metadata = nil
+		}
+	}
+
+	query, args := `
+	WITH session AS
+	(
+		UPDATE im_account.session AS w SET
+			ip = @ip
+		, "name" = @name
+		, user_agent = @user_agent
+		, contact_id = @contact_id
+		, metadata = w.metadata || @metadata
+		WHERE id = @id AND device_id = @device_id
+		RETURNING *
+	)
+	, session_token AS
+	(
+		INSERT INTO im_account.session_token AS w
+		(
+			id, "scope"
+		, "type", "token", "refresh"
+		, rotated_at, expires_at
+		, revoked_at -- , revoked_by
+		)
+		SELECT
+			c.id, @scope
+		, @token_type, @access_token, @refresh_token
+		, @rotated_at, @expires_at
+		, @revoked_at -- , @revoked_by
+		FROM session c
+		WHERE @access_token::text NOTNULL
+		ON CONFLICT (id) DO UPDATE SET --
+		  scope = @scope
+		, "type" = @token_type
+		, "token" = @access_token
+		, "refresh" = @refresh_token
+		, rotated_at = @rotated_at
+		, expires_at = @expires_at
+		, revoked_at = @revoked_at
+		-- , revoked_by = @revoked_by
+		RETURNING *
+	)
+	SELECT true FROM session
+	`, pgx.NamedArgs{
+		// "dc":         session.Dc,
+		"id":         session.Id, // UUID
+		"ip":         pgtypex.NetIPValue(session.IP),
+		"name":       session.Name,
+		// "app_id":     session.AppId,
+		"device_id":  session.Device.Id,
+		"user_agent": session.Device.App.String,
+		"contact_id": (*ContactId)(session.Contact),
+		"metadata":   metadata, // json.Marshal
+		// "created_at": pgtypex.TimestamptzValue(&session.Date),
+
+		"scope":         session.Grant.Scope, // pgtype.FlatArray[],
+		"token_type":    zeronull.Text(session.Grant.Type),
+		"access_token":  zeronull.Text(session.Grant.Token),
+		"refresh_token": zeronull.Text(session.Grant.Refresh),
+		"rotated_at":    pgtypex.TimestamptzValue(&session.Grant.Date),
+		"expires_at":    pgtypex.TimestamptzValue(session.Grant.Expires),
+		"revoked_at":    pgtypex.TimestamptzValue(session.Grant.Revoked),
+		// "revoked_by":    nil,
+	}
+
+	var ok bool
+	err := c.db.Client().QueryRow(
+		ctx, query, args,
+	).Scan(&ok)
+
+	if err != nil {
+		if goerrors.Is(err, pgx.ErrNoRows) {
+			return errors.NotFound(
+				errors.Message("session: not found"),
+			)
+		}
+		return err
+	}
+
+	// defer rows.Close()
+
+	if !ok {
+		return errors.NotFound(
+			errors.Message("session: not found"),
+		)
+	}
+
+	// [ OK ]
+	return nil // ROTATED
 }
 
 func (c *SessionStore) SearchV2(req store.ListSessionRequest) (*model.SessionList, error) {

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -83,24 +84,26 @@ func ProtoApplication(src *v1.Application) *Application {
 // Verifies given [idToken] as Contact profile
 // is satisfied with [c.contacts.auth] constraints
 func (app *Application) NewIdentity(idToken *Contact) error {
-	// app.contacts (section) config
-	appContacts := app.src.GetContacts()
-	// MUST be registered to allow (external: login) usage
-	knownIssuers := appContacts.GetAuth().GetIssuers()
-	if !slices.Contains(knownIssuers, idToken.Iss) {
+	
+	// Validate [idToken.Sub] subject identifier
+	if idToken.Sub == "" {
 		return errors.BadRequest(
-			errors.Message("identity: invalid issuer identifier"),
+			errors.Status("NO_SUBJECT"),
+			errors.Message("contacts: subject identifier is missing"),
 		)
 	}
+	// [TODO]: .sub ~= /[A-Za-z0-9\-\.]+/ ; BAD_SUBJECT
+
+	
+	// Validate [idToken.Iss] issuer identifier
+	issuer := idToken.Iss
 	// FIXME: disallow .well-known issuers
 	reserved := true
-	switch strings.ToLower(idToken.Iss) {
-	case "bot", "script":
+	switch strings.ToLower(issuer) {
 	case "app", "service":
+	case "bot", "script", "scheme":
 	case "user", "webitel", "contact":
-	case "viber":
-	case "telegram":
-	case "facebook", "instagram", "whatsapp":
+	case "viber", "signal", "telegram", "whatsapp", "facebook", "instagram":
 	default:
 		{
 			reserved = false // allowed !
@@ -109,9 +112,26 @@ func (app *Application) NewIdentity(idToken *Contact) error {
 
 	if reserved {
 		return errors.BadRequest(
-			errors.Message("identity: reserved issuer identifier"),
+			errors.Status("BAD_ISSUER"),
+			errors.Message("contacts: issuer(%s) reserved", issuer),
 		)
 	}
+
+	// app.contacts (section) config
+	contacts := app.src.GetContacts()
+	oauth := contacts.GetAuth()
+	// MUST be registered to allow (external: login) usage
+	trustedIssuers := oauth.GetIssuers()
+	if !slices.Contains(trustedIssuers, issuer) {
+		return errors.BadRequest(
+			errors.Status("BAD_ISSUER"),
+			errors.Message("contacts: issuer(%s) has no trusted relationship", issuer),
+		)
+	}
+	// resolve contact (protocol) type for trusted issuer
+	contactTypes := oauth.GetProtos()
+	contactType, _ := contactTypes[issuer]
+	contactType = cmp.Or(contactType, issuer) // default: issuer
 
 	if idToken.Dc < 1 {
 		// invalid or not assigned !
@@ -120,38 +140,32 @@ func (app *Application) NewIdentity(idToken *Contact) error {
 	// Ensure App.Dc tenant match !
 	if idToken.Dc != app.GetDc() {
 		return errors.BadRequest(
-			errors.Message("identity: invalid business identifier"),
+			errors.Message("contacts: invalid business identifier"),
 		)
-	}
-	// Validate [idToken.Sub] subject identifier
-	// /[A-Za-z0-9\-\.]+/
-	if idToken.Sub == "" {
-		return errors.BadRequest(
-			errors.Message("identity: subject identifier is missing"),
-		)
-	}
-
-	if idToken.App == "" {
-		// current
-		idToken.App = app.ClientId()
 	}
 
 	// Validate [idToken.Sub] subject identifier
 	// /[A-Za-z0-9\-\.]+/
-	commonName := ContactName{
+	contactName := ContactName{
 		CommonName: idToken.Name,
 		GivenName:  idToken.GivenName,
 		MiddleName: idToken.MiddleName,
 		FamilyName: idToken.FamilyName,
 	}
 
-	if !commonName.IsValid() {
+	if !contactName.IsValid() {
 		return errors.BadRequest(
-			errors.Message("identity: subject name is missing"),
+			errors.Message("contacts: subject name is missing"),
 		)
 	}
+
 	// build ; normalize
-	idToken.Name = commonName.String()
+	if idToken.App == "" {
+		// current
+		idToken.App = app.ClientId()
+	}
+	idToken.Name = contactName.String()
+	idToken.Type = contactType
 
 	// [ OK ]
 	return nil

@@ -342,7 +342,8 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 
 	if !ok { // if req.GetPush().GetToken() == nil {
 		return nil, errors.BadRequest(
-			errors.Message("register: PUSH token required"),
+			errors.Status("TOKEN_REQUIRED"),
+			errors.Message("register: PUSH.(token) required"),
 		)
 	}
 	// endregion: Request Validation
@@ -382,12 +383,20 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 		{
 			if service.GetFcm() == nil {
 				// no client configuration == no support
+				return nil, errors.BadRequest(
+					errors.Status("NO_FCMS_SERVICE"),
+					errors.Message("register: no [app.service.push.FCMs] client configuration"),
+				)
 			}
 		}
 	case *v1.PUSHSubscription_Apn:
 		{
 			if service.GetApn() == nil {
 				// no client configuration == no support
+				return nil, errors.BadRequest(
+					errors.Status("NO_APNS_SERVICE"),
+					errors.Message("register: no [app.service.push.APNs] client configuration"),
+				)
 			}
 		}
 	case *v1.PUSHSubscription_Web:
@@ -684,7 +693,10 @@ func currentAuthorizationProtoV1(rpc *handler.Context) (*v1.Authorization, error
 
 	// current (latest) contact info
 	if contact := rpc.Contact; contact != nil {
-		metadata, _ := structpb.NewStruct(contact.Metadata)
+		var metadata *structpb.Struct
+		if len(contact.Metadata) > 0 {
+			metadata, _ = structpb.NewStruct(contact.Metadata)
+		}
 		authN.Contact = &v1.Contact{
 			Dc:                  contact.Dc,
 			Id:                  contact.Id,
@@ -920,7 +932,10 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 		// [X-Webitel-Device] ; REQUIRED
 		handler.DeviceAuthorization(true),
 		// [X-Webitel-Access] ; OPTIONAL
-		// Used as a [hint] to resolve previously assigned session
+		// Used as a [hint] to locate (device) session
+		// [NOTE]: ( device + contact ) = UNIQUE
+		// [NOTE]: ( device + app ) = NOT UNIQUE
+		// [TODO]: DO NOT verify internal token validity ; just load if found
 		handler.EndUserAuthorization(false),
 	)
 
@@ -946,67 +961,82 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 		return rpc, err
 	}
 
-	// Authorize Contact for Login
-	rpc.Contact = contact
+	// // Authorize Contact for Login
+	// rpc.Contact = profile
 
 	// previous session (port) resolved ?
+	var trace []any
 	hint := rpc.Session
+	// sanitize rpc.Log context
+	rpc.Session = nil
+	rpc.Contact = nil
 
 	// FindSession(!)
 	if hint == nil {
-		// FIXME: lookup session( app_id, device_id, contact_id );
-		sessions := api.srv.Options().Sessions
-		hint, err = model.Get(sessions.Search(
-			store.ListSessionRequest{
-				Context:   rpc.Context,
-				Dc:        rpc.App.GetDc(),
-				ContactId: nil,
-				DeviceId:  rpc.Device.Id,
-				AppId:     rpc.App.ClientId(),
-				Token:     "",
-				Page:      1,
-				Size:      1,
+		// FIXME: lookup SINGLE session( app_id, device_id );
+		hint, err = api.srv.GetSession(
+			rpc.Context, func(req *handler.SessionListOptions) error {
+				req.Dc =        rpc.App.GetDc()
+				req.AppId =     rpc.App.ClientId()
+				req.DeviceId =  rpc.Device.Id
+				// req.ContactId = nil
+				// req.Token =     ""
+				return nil
 			},
-		))
+		)
+
 		if err != nil {
-			api.srv.Options().Logs.Warn(
+			rpc.Warn(
 				"Failed lookup session",
+				// dc + app + device
 				"error", err,
 			)
 			hint, err = nil, nil
 		}
-	}
 
-	if hint != nil {
-		// CHECK: has [access_token] grant been already assigned & active ?
-		if err := hint.Grant.Verify(rpc.Date); err == nil {
-			// Authorize WITH an active [access_token] granted !
-			rpc.Session = hint
-			rpc.Logger.Log(
-				rpc.Context, (slog.LevelInfo + 1),
-				"FOUND Authorization Token",
-				"session", slogx.DeferValue(func() slog.Value {
-					return slog.GroupValue(
-						slog.Int64("dc", hint.Dc),
-						slog.String("id", hint.Id),
-						slog.String("name", hint.Name),
-						slog.String("app.id", hint.AppId),
-						slog.Group("device",
-							"id", hint.Device.Id,
-							"push", (hint.Device.Push.GetToken() != nil),
-						),
-						slog.Group("contact",
-							"iss", hint.Contact.Iss,
-							"sub", hint.Contact.Sub,
-						),
-					)
-				}),
-			)
-			return rpc, nil
+		if hint != nil {
+			trace = append(trace, "hint.session.id", hint.Id)
 		}
 	}
 
-	session := hint // current
+	// if hint != nil {
+	// 	// CHECK: has [access_token] grant been already assigned & active ?
+	// 	if err := hint.Grant.Verify(rpc.Date); err == nil {
+	// 		// Authorize WITH an active [access_token] granted !
+	// 		rpc.Session = hint
+	// 		rpc.Log(
+	// 			rpc.Context, (slog.LevelInfo + 1),
+	// 			"FOUND Authorization Token",
+	// 			"session", slogx.DeferValue(func() slog.Value {
+	// 				return slog.GroupValue(
+	// 					slog.Int64("dc", hint.Dc),
+	// 					slog.String("id", hint.Id),
+	// 					slog.String("name", hint.Name),
+	// 					slog.String("app.id", hint.AppId),
+	// 					slog.Group("device",
+	// 						"id", hint.Device.Id,
+	// 						"push", (hint.Device.Push.GetToken() != nil),
+	// 					),
+	// 					slog.Group("contact",
+	// 						"iss", hint.Contact.Iss,
+	// 						"sub", hint.Contact.Sub,
+	// 					),
+	// 				)
+	// 			}),
+	// 		)
+	// 		return rpc, nil
+	// 	}
+	// }
+
+	// Prepare Session Authorization
+	signIn := &model.ContactId{
+		Dc:  contact.Dc,
+		Id:  contact.Id,
+		Iss: contact.Iss,
+		Sub: contact.Sub,
+	}
+	// located ?
+	session := hint
 	// const (
 	// 	active uint8 = iota
 	// 	update
@@ -1025,18 +1055,14 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 			// Grant:  &grant,
 			AppId:  rpc.App.ClientId(),
 			Device: (*rpc.Device),
-			Contact: &model.ContactId{
-				Dc:  contact.Dc,
-				Iss: contact.Iss,
-				Sub: contact.Sub,
-			},
+			Contact: signIn,
 			Metadata: make(map[string]any),
 			// Current:  true,
 		}
 
-		rpc.Logger.Log(
+		rpc.Log(
 			rpc.Context, (slog.LevelInfo + 1),
-			"NEW Authorization Session",
+			"[ Authorization ] NEW Session", // NEW Device
 			"session", slogx.DeferValue(func() slog.Value {
 				return slog.GroupValue(
 					slog.Int64("dc", session.Dc),
@@ -1056,7 +1082,72 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 		)
 	}
 
-	if session.Grant == nil {
+	signOut := session.Contact
+	if !signIn.Equal(signOut) {
+		if signOut != nil {
+			rpc.Info(
+				"[ Authorization ] Sign-OUT", append(trace,
+					"contact", slogx.DeferValue(func() slog.Value {
+						return slog.GroupValue(
+							slog.String("id", signOut.Id),
+							slog.String("iss", signOut.Iss),
+							slog.String("sub", signOut.Sub),
+						)
+					}),
+				)...,
+				// "session", slogx.DeferValue(func() slog.Value {
+				// 	return slog.GroupValue(
+				// 		slog.Int64("dc", session.Dc),
+				// 		slog.String("id", session.Id),
+				// 		slog.String("name", session.Name),
+				// 		slog.String("app.id", session.AppId),
+				// 		slog.Group("device",
+				// 			"id", session.Device.Id,
+				// 			"push", (session.Device.Push.GetToken() != nil),
+				// 		),
+				// 		slog.Group("contact",
+				// 			"iss", session.Contact.Iss,
+				// 			"sub", session.Contact.Sub,
+				// 		),
+				// 	)
+				// }),
+			)
+		}
+		
+		// SIGN-IN [NEW] Contact (identity)
+		session.Contact = signIn
+		
+		rpc.Info(
+			"[ Authorization ] Sign-IN", append(trace,
+				"contact", slogx.DeferValue(func() slog.Value {
+					return slog.GroupValue(
+						slog.String("id", signIn.Id),
+						slog.String("iss", signIn.Iss),
+						slog.String("sub", signIn.Sub),
+					)
+				}),
+			)...,
+			// "session", slogx.DeferValue(func() slog.Value {
+			// 	return slog.GroupValue(
+			// 		slog.Int64("dc", session.Dc),
+			// 		slog.String("id", session.Id),
+			// 		slog.String("name", session.Name),
+			// 		slog.String("app.id", session.AppId),
+			// 		slog.Group("device",
+			// 			"id", session.Device.Id,
+			// 			"push", (session.Device.Push.GetToken() != nil),
+			// 		),
+			// 		slog.Group("contact",
+			// 			"iss", session.Contact.Iss,
+			// 			"sub", session.Contact.Sub,
+			// 		),
+			// 	)
+			// }),
+		)
+	}
+
+	// if session.Grant == nil {
+
 		// todo = max(todo, update)
 		// Generate NEW [access_token] for session Authorization !
 		grant, err := handler.TokenGen.Generate(
@@ -1074,12 +1165,14 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 		// }
 
 		// assign !
-		session.Grant = &grant
+		// revoked := session.Grant // current
+		session.Grant = &grant // generated
 
-		rpc.Logger.Log(
-			rpc.Context, (slog.LevelInfo + 1),
-			"NEW Token [RE]Generation",
+		rpc.Info(
+			// "NEW Token [RE]Generation",
+			"[ Authorization ] NEW Token",
 			"session", slogx.DeferValue(func() slog.Value {
+				push := session.Device.Push.ProtoReflect()
 				return slog.GroupValue(
 					slog.Int64("dc", session.Dc),
 					slog.String("id", session.Id),
@@ -1087,16 +1180,20 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 					slog.String("app.id", session.AppId),
 					slog.Group("device",
 						"id", session.Device.Id,
-						"push", (session.Device.Push.GetToken() != nil),
+						// "push", (session.Device.Push.GetToken() != nil),
+						"push", string(push.WhichOneof(
+							push.Descriptor().Oneofs().ByName("token"),
+						).Name()),
 					),
 					slog.Group("contact",
+						"id",  session.Contact.Id,
 						"iss", session.Contact.Iss,
 						"sub", session.Contact.Sub,
 					),
 				)
 			}),
 		)
-	}
+	// }
 
 	if hint == nil {
 		// CREATE
@@ -1105,14 +1202,18 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 			rpc.Context, session,
 		)
 	} else {
-		// UPDATE ; rotate session_token grant
+		// UPDATE ; rotate session_token grant ; update last device info
+		err = rpc.Service.Options().Sessions.Update(
+			rpc.Context, session,
+		)
 	}
 
 	if err != nil {
 		return rpc, err
 	}
 
-	// Authorize session grant
+	// Authorize contact & session + grant
+	rpc.Contact = contact
 	rpc.Session = session
 
 	return rpc, nil

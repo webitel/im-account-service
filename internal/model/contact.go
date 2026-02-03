@@ -10,6 +10,61 @@ type ContactId struct {
 	Sub string // Subject identifier, under Issuer
 }
 
+func (e *ContactId) IsZero() bool {
+	return e == nil || (*e) == ContactId{}
+}
+
+func (e *ContactId) IsValid() bool {
+	return e != nil && (e.Id != "" || (e.Iss != "" && e.Sub != ""))
+}
+
+func (e *ContactId) Equal(x *ContactId) bool {
+	if e == nil || x == nil {
+		return false
+	}
+	if e == x {
+		return e.IsValid()
+	}
+	// NULL != NULL
+	if !e.IsValid() || !x.IsValid() {
+		return false
+	}
+	// e.Dc != x.Dc
+	if e.Dc > 0 && x.Dc > 0 && e.Dc != x.Dc {
+		return false
+	}
+	mismatch := func(s, t string) bool {
+		return s != "" && t != "" && s != t
+	}
+	// e.Id != x.Id
+	if mismatch(e.Id, x.Id) {
+		return false
+	}
+	// e.Sub != x.Sub
+	if mismatch(e.Sub, x.Sub) {
+		return false
+	}
+	// e.Iss != x.Iss
+	if mismatch(e.Iss, x.Iss) {
+		return false
+	}
+	// unknown ; {Id:"123"} != {Iss:"a", Sub:"b"}
+	exactOrEmpty := func(s1, s2 string) bool {
+		return s1 == s2 || s1 == "" || s2 == ""
+	}
+	exactNonEmpty := func(s1, s2 string) bool {
+		return s1 != "" && s1 == s2
+		// if s1 == "" || s2 == "" {
+		// 	return false
+		// }
+		// return s1 == s2
+	}
+	if exactNonEmpty(e.Iss, x.Iss) && exactNonEmpty(e.Sub, x.Sub)	{
+		return exactOrEmpty(e.Id, x.Id)
+	}
+	return exactNonEmpty(e.Id, x.Id)
+}
+
 // Contact profile
 type Contact struct {
 	// [IM] Business [Domain] Account ID

@@ -10,6 +10,7 @@ type SessionStore interface {
 	//
 	Search(ListSessionRequest) (*model.SessionList, error)
 	Create(ctx context.Context, session *model.Authorization) error
+	Update(ctx context.Context, session *model.Authorization) error
 	Delete(ctx context.Context, sessionId string) error
 
 	RegisterDevice(RegisterDeviceRequest) error

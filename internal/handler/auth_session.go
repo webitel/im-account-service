@@ -108,7 +108,7 @@ func SessionAuthentication(rpc *Context, token string) (ok bool, err error) {
 		return true, ErrTokenInvalid
 	}
 
-	if session == nil {
+	if session == nil { // && !ok {
 		// no token hard prefix defined
 		// not sure it's our token, but no session found
 		// try other authentication policy schemes ..
@@ -119,8 +119,10 @@ func SessionAuthentication(rpc *Context, token string) (ok bool, err error) {
 	if session.Grant == nil || session.Grant.Token != token {
 		return true, ErrTokenInvalid
 	}
+	
 	// Verify token (grant) can be used ; ( !revoked | nbf < date < exp | .. )
 	err = session.Grant.Verify(rpc.Date)
+	
 	if err != nil {
 		// invalid / revoked   access token
 		return true, err

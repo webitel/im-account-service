@@ -337,6 +337,9 @@ func contactMdFromProtoV1(src *impb.Contact, dst *model.Contact) {
 		}
 	}
 
+	if len(metadata) == 0 {
+		metadata = nil
+	}
 	dst.Metadata = metadata
 }
 
@@ -396,5 +399,8 @@ func contactMdFormProtoV1(src *model.Contact) (metadata map[string]string) {
 		metadata[att] = vs
 	}
 
+	if len(metadata) == 0 {
+		metadata = nil
+	}
 	return metadata
 }
