@@ -141,32 +141,34 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 			// Failed lookup session
 			return bearer, err
 		}
-		if session == nil {
-			// Not Found ; Init ..
-			session = &model.Authorization{
-				Id:     "", // Not Found
-				Dc:     endUser.Dc,
-				IP:     rpc.Device.IP(),
-				Date:   rpc.Date,
-				Name:   model.SessionName(rpc.Device),
-				AppId:  "",            // UUID NULL ; app.(domain)
-				Device: (*rpc.Device), // shallowcopy
-				Contact: &model.ContactId{
-					Dc:  endUser.Dc,
-					Id:  endUser.Id,
-					Iss: endUser.Iss,
-					Sub: endUser.Sub,
-				},
-				Metadata: make(map[string]any),
-				Current:  false,
-				//Grant:    nil,
-			}
+	}
 
-			if app != nil {
-				session.AppId = app.ClientId() // UUID
-			}
+	if session == nil {
+		// Not Found ; Init ..
+		session = &model.Authorization{
+			Id:     "", // Not Found
+			Dc:     endUser.Dc,
+			IP:     rpc.Device.IP(),
+			Date:   rpc.Date,
+			Name:   model.SessionName(rpc.Device),
+			AppId:  "",            // UUID NULL ; app.(domain)
+			Device: (*rpc.Device), // shallowcopy
+			Contact: &model.ContactId{
+				Dc:  endUser.Dc,
+				Id:  endUser.Id,
+				Iss: endUser.Iss,
+				Sub: endUser.Sub,
+			},
+			Metadata: make(map[string]any),
+			Current:  false,
+			//Grant:    nil,
+		}
+
+		if app != nil {
+			session.AppId = app.ClientId() // UUID
 		}
 	}
+
 	// Webitel (session) Authorization prepared
 	// No (internal) token [grant] assignment
 	rpc.Dc = session.Dc

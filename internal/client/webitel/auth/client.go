@@ -44,7 +44,7 @@ func NewClient(
 
 	const serviceName = "go.webitel.app"
 	conn, err := client_grpc.NewServiceClient(
-		logger, registry, serviceName, opts...,
+		logger, registry, nil, serviceName, opts...,
 	)
 
 	if err != nil {

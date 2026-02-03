@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	// _ "google.golang.org/grpc/balancer/grpclb" // consul: [DNS] SRV record(s) ; port not involved  =((
 	// _ "google.golang.org/grpc/balancer/roundrobin"
@@ -37,7 +39,7 @@ const (
 	}`
 )
 
-func NewServiceClient(logger *slog.Logger, registry discovery.DiscoveryProvider, service string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func NewServiceClient(logger *slog.Logger, registry discovery.DiscoveryProvider, secure *tls.Config, service string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 
 	const scheme = "discovery://"
 
@@ -51,8 +53,13 @@ func NewServiceClient(logger *slog.Logger, registry discovery.DiscoveryProvider,
 
 	logger.Info(fmt.Sprintf("NewClient( %s )", target), slog.String("target", target))
 
+	creds := insecure.NewCredentials()
+	if secure != nil {
+		creds = credentials.NewTLS(secure)
+	}
+
 	opts = append([]grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultServiceConfig(retryPolicy),
 		grpc.WithResolvers(resolver.NewBuilder(
 			registry,
