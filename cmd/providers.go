@@ -33,6 +33,13 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.38.0"
 	"go.uber.org/fx"
+
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/log/otlp"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/log/stdout"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/metric/otlp"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/metric/stdout"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/trace/otlp"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/trace/stdout"
 )
 
 func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
@@ -225,12 +232,12 @@ func (h *multiHandler) WithGroup(name string) slog.Handler {
 }
 
 func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_tls.Config, lc fx.Lifecycle) (*grpc_srv.Server, error) {
-	
+
 	var ssl *tls.Config
 	if creds != nil {
 		ssl = creds.Server
 	}
-	
+
 	s, err := grpc_srv.New(config.Service.Address, logger, ssl)
 	if err != nil {
 		return nil, err
