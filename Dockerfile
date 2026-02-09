@@ -1,21 +1,21 @@
 #syntax=docker/dockerfile:1
 
-ARG GO_VERSION=1.25.3
+ARG GO_VERSION=1.25.5
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
 WORKDIR /src
 
 RUN --mount=type=cache,target=/go/pkg/mod/ \
-    --mount=type=bind,source=go.sum,target=go.sum \
-    --mount=type=bind,source=go.mod,target=go.mod \
-    go mod download -x
+  --mount=type=bind,source=go.sum,target=go.sum \
+  --mount=type=bind,source=go.mod,target=go.mod \
+  go mod download -x
 
 ARG TARGETARCH
 
 RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=bind,target=. \
-    CGO_ENABLED=0 GOARCH=${TARGETARCH} go build \
-        -trimpath \
-        -o /bin/im-account-service main.go
+  --mount=type=bind,target=. \
+  CGO_ENABLED=0 GOARCH=${TARGETARCH} go build \
+  -trimpath \
+  -o /bin/im-account-service main.go
 
 FROM alpine:3.20 AS final
 
@@ -27,10 +27,10 @@ LABEL org.opencontainers.image.source="https://github.com/webitel/im-account-ser
 
 RUN --mount=type=cache,target=/var/cache/apk \
   apk --update add \
-    ca-certificates \
-    tzdata \
-    && \
-    update-ca-certificates
+  ca-certificates \
+  tzdata \
+  && \
+  update-ca-certificates
 
 ARG UID=10001
 RUN adduser \

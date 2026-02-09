@@ -13,12 +13,17 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/tracelog"
+	"github.com/webitel/im-account-service/infra/x/logx"
 )
 
 func debugLog(logger *slog.Logger) pgx.QueryTracer {
-	stdlog := logger.With( // slog.Default().With(
-		"db.system", "postgresql",
-	)
+	// stdlog := logger.With( // slog.Default().With(
+	// 	"db.system", "postgresql",
+	// )
+	if !logx.Debug("postgres", "db") {
+		return nil
+	}
+	stdlog := logx.ModuleLogger("postgres", logger)
 	// traces := stdlog.Enabled(
 	// 	context.TODO(), (slog.LevelDebug - 4),
 	// )
@@ -36,7 +41,8 @@ func debugLog(logger *slog.Logger) pgx.QueryTracer {
 			if !stdlog.Enabled(ctx, level) {
 				return
 			}
-			stdlog.LogAttrs(ctx, level, ("[ POSTGRES ]: " + event), slogAttrs(data)...)
+			// stdlog.LogAttrs(ctx, level, ("[ POSTGRES ]: " + event), slogAttrs(data)...)
+			stdlog.LogAttrs(ctx, level, event, slogAttrs(data)...)
 		}),
 	}
 }

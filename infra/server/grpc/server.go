@@ -11,6 +11,8 @@ import (
 
 	"github.com/webitel/im-account-service/config"
 	infra_tls "github.com/webitel/im-account-service/infra/tls"
+	"github.com/webitel/im-account-service/infra/x/grpcx"
+	"github.com/webitel/im-account-service/infra/x/logx"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -33,7 +35,7 @@ var Module = fx.Module(
 			runtime.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
 					go func() {
-						logger.Info(fmt.Sprintf("Server [grpc] Listening on %s:%d", srv.Host(), srv.Port()))
+						logger.Info(fmt.Sprintf("[ server ] Listening [grpc] %s", srv.Addr)) // %s:%d", srv.Host(), srv.Port()))
 						if err := srv.Listen(); err != nil {
 							logger.Error("grpc server error", "error", err)
 						}
@@ -70,7 +72,7 @@ func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 
 	serverOpts := []grpc.ServerOption{
 		// grpc.ChainUnaryInterceptor(),
-		grpc.StatsHandler(newServiceHandler(log)),
+		
 	}
 
 	// Configure TLS if provided
@@ -80,19 +82,30 @@ func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 		))
 	}
 
+	if logx.Debug("grpc") {
+		serverOpts = append(serverOpts,
+			grpc.StatsHandler(grpcx.DumpHandler(func(opts *grpcx.DumpOptions) {
+				opts.Debug = slog.LevelDebug
+				opts.Logger = logx.ModuleLogger("im-account-server", log)
+			})),
+		)
+	}
+
 	s := grpc.NewServer(serverOpts...)
 
-	l, err := net.Listen("tcp", addr)
+	ls, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 
-	h, p, err := net.SplitHostPort(l.Addr().String())
+	addr = ls.Addr().String()
+	h, p, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err
 	}
 	port, _ := strconv.Atoi(p)
 
+	// IPv6 ; listening on all available interfaces ?
 	if h == "::" {
 		h = publicAddr()
 	}
@@ -103,7 +116,7 @@ func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 		log:      log,
 		host:     h,
 		port:     port,
-		listener: l,
+		listener: ls,
 	}, nil
 }
 
@@ -129,6 +142,12 @@ func (s *Server) Host() string {
 
 func (s *Server) Port() int {
 	return s.port
+}
+
+// Advertise returns the address to be advertised to other services.
+func (s *Server) Advertise() string {
+	port := strconv.Itoa(s.port)
+	return net.JoinHostPort(s.Host(), port)
 }
 
 func publicAddr() string {
@@ -160,7 +179,7 @@ func publicAddr() string {
 			// process IP address
 		}
 	}
-	return ""
+	return "" // "127.0.0.1"
 }
 
 func isPublicIP(IP net.IP) bool {

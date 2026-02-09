@@ -2,7 +2,7 @@ module github.com/webitel/im-account-service
 
 go 1.25.5
 
-// indirect github.com/webitel/protos[@feat/messaging] v1.0.1-0.20260201130056-02376a48ef8f
+// indirect github.com/webitel/protos[@feat/messaging] v1.0.1-0.20260201130056-3c5678f2305f
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1

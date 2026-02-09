@@ -121,7 +121,7 @@ func (srv *Service) GetContext(ctx context.Context, opts ...ContextFunc) (rpc *C
 		// init
 		if rpc.Service == nil {
 			rpc.Service = srv
-			rpc.Logger = cmp.Or(rpc.Logger, srv.opts.Logs)
+			rpc.Logger = cmp.Or(rpc.Logger, srv.opts.Logger)
 			// rpc.Logger = rpc.Logger.With(
 			// 	ContextLog(rpc).Group("rpc"), // freezes current state attributes ; not dynamic !
 			// )

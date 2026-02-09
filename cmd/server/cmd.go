@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -15,12 +16,12 @@ import (
 func CMD() *cli.Command {
 	return &cli.Command{
 		Name:  "server",
-		Usage: "Run the gRPC server",
+		Usage: fmt.Sprintf("Run the [%s] microservice node", cmd.ServiceName),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "config_file",
 				Aliases: []string{"c"},
-				Usage:   "Configuration file path",
+				Usage:   "Path to the configuration filename",
 			},
 		},
 		Action: func(c *cli.Context) error {

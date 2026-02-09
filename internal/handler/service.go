@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	// grpc_srv "github.com/webitel/im-account-service/infra/server/grpc"
-	"github.com/webitel/im-account-service/infra/pubsub"
+	broker "github.com/webitel/im-account-service/infra/pubsub"
 	auth "github.com/webitel/im-account-service/internal/client/webitel/auth"
 	"github.com/webitel/im-account-service/internal/store"
 	cspb "github.com/webitel/im-account-service/proto/gen/im/service/contact/v1"
@@ -13,10 +13,12 @@ import (
 
 // Service (Handler) Options
 type ServiceOptions struct {
-	fx.In // Input Params
-	Logs  *slog.Logger
+
+	fx.In // FX: Params.(input)
+
+	Logger *slog.Logger
 	// Server  *grpc_srv.Server
-	Broker pubsub.Provider
+	Broker broker.Provider
 	// Catalog struct {
 	Apps     store.AppStore
 	Sessions store.SessionStore

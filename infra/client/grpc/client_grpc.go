@@ -2,12 +2,13 @@ package grpc
 
 import (
 	"crypto/tls"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/webitel/im-account-service/infra/discovery/resolver"
+	"github.com/webitel/im-account-service/infra/x/grpcx"
+	"github.com/webitel/im-account-service/infra/x/logx"
 	"github.com/webitel/webitel-go-kit/infra/discovery"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
@@ -50,8 +51,7 @@ func NewServiceClient(logger *slog.Logger, registry discovery.DiscoveryProvider,
 	}
 
 	// target := "discovery:///" + service
-
-	logger.Info(fmt.Sprintf("NewClient( %s )", target), slog.String("target", target))
+	logger.Info(target, slog.String("service", service))
 
 	creds := insecure.NewCredentials()
 	if secure != nil {
@@ -68,7 +68,17 @@ func NewServiceClient(logger *slog.Logger, registry discovery.DiscoveryProvider,
 			resolver.WithTimeout((time.Second * 5)),
 		)),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithUserAgent("im-account-service/v26.02"), // + " " + grpcUA
 	}, opts...)
+
+	if logx.Debug("grpc") {
+		opts = append(opts,
+			grpc.WithStatsHandler(grpcx.DumpHandler(func(opts *grpcx.DumpOptions) {
+				opts.Debug = slog.LevelDebug
+				opts.Logger = logger // logx.ModuleLogger(service + "-client", logger)
+			})),
+		)
+	}
 
 	client, err := grpc.NewClient(target, opts...)
 

@@ -1064,6 +1064,13 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 			rpc.Context, (slog.LevelInfo + 1),
 			"[ Authorization ] NEW Session", // NEW Device
 			"session", slogx.DeferValue(func() slog.Value {
+				var pushVia string // PUSH: service [VIA] kind ; not registered
+				if regpush := session.Device.Push; regpush.GetToken() != nil {
+					protom := session.Device.Push.ProtoReflect()
+					pushVia = string(protom.WhichOneof(
+						protom.Descriptor().Oneofs().ByName("token"),
+					).Name())
+				}
 				return slog.GroupValue(
 					slog.Int64("dc", session.Dc),
 					slog.String("id", session.Id),
@@ -1071,7 +1078,7 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 					slog.String("app.id", session.AppId),
 					slog.Group("device",
 						"id", session.Device.Id,
-						"push", (session.Device.Push.GetToken() != nil),
+						"push", pushVia,
 					),
 					slog.Group("contact",
 						"iss", session.Contact.Iss,
@@ -1172,7 +1179,13 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 			// "NEW Token [RE]Generation",
 			"[ Authorization ] NEW Token",
 			"session", slogx.DeferValue(func() slog.Value {
-				push := session.Device.Push.ProtoReflect()
+				var pushVia string // PUSH: service [VIA] kind ; not registered
+				if regpush := session.Device.Push; regpush.GetToken() != nil {
+					protom := session.Device.Push.ProtoReflect()
+					pushVia = string(protom.WhichOneof(
+						protom.Descriptor().Oneofs().ByName("token"),
+					).Name())
+				}
 				return slog.GroupValue(
 					slog.Int64("dc", session.Dc),
 					slog.String("id", session.Id),
@@ -1181,9 +1194,7 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 					slog.Group("device",
 						"id", session.Device.Id,
 						// "push", (session.Device.Push.GetToken() != nil),
-						"push", string(push.WhichOneof(
-							push.Descriptor().Oneofs().ByName("token"),
-						).Name()),
+						"push", pushVia,
 					),
 					slog.Group("contact",
 						"id",  session.Contact.Id,

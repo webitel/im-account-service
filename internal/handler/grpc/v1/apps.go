@@ -37,7 +37,7 @@ func (c *ApplicationService) SearchApps(ctx context.Context, req *impb.SearchApp
 
 	list, err := c.store.Search(store.SearchAppRequest{
 		Context: ctx,
-		Dc:      0, // FIXME
+		Dc:      req.GetDc(),
 		Id:      req.GetId(),
 		Page:    int(req.GetPage()),
 		Size:    int(req.GetSize()),

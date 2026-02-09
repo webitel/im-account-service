@@ -25,6 +25,7 @@ import (
 	"github.com/webitel/im-account-service/infra/pubsub/factory/amqp"
 	grpc_srv "github.com/webitel/im-account-service/infra/server/grpc"
 	infra_tls "github.com/webitel/im-account-service/infra/tls"
+	"github.com/webitel/im-account-service/infra/x/logx"
 	"github.com/webitel/webitel-go-kit/infra/discovery"
 	_ "github.com/webitel/webitel-go-kit/infra/discovery/consul"
 	otelsdk "github.com/webitel/webitel-go-kit/infra/otel/sdk"
@@ -49,7 +50,7 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 		logSettings.Console = true
 	}
 
-	level := parseLevel(logSettings.Level)
+	level := parseLogLevel(logSettings.Level)
 	opts := &slog.HandlerOptions{
 		Level: level,
 	}
@@ -98,18 +99,18 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 		)
 		otelHandler := otelslog.NewHandler("slog")
 
-		shutdown, err := otelsdk.Configure(context.Background(), otelsdk.WithResource(service),
-			otelsdk.WithLogBridge(
-				func() {
+		shutdown, err := otelsdk.Configure(
+			context.Background(),
+			otelsdk.WithResource(service),
+			otelsdk.WithLogBridge(func() {
 					handlers = append(handlers, otelHandler)
-				},
-			),
+			}),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		handlers = append(handlers)
+		// handlers = append(handlers)
 		lc.Append(fx.Hook{
 			OnStop: func(ctx context.Context) error {
 				return shutdown(ctx)
@@ -119,7 +120,8 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 
 	var finalHandler slog.Handler
 	if len(handlers) == 0 {
-		finalHandler = slog.NewTextHandler(os.Stdout, opts)
+		// finalHandler = slog.NewTextHandler(os.Stdout, opts)
+		finalHandler = console(os.Stdout, level)
 	} else if len(handlers) == 1 {
 		finalHandler = handlers[0]
 	} else {
@@ -132,7 +134,7 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 	return logger, nil
 }
 
-func parseLevel(input string) (level slog.Level) {
+func parseLogLevel(input string) (level slog.Level) {
 	err := level.UnmarshalText([]byte(input))
 	if err != nil {
 		// default: info
@@ -232,7 +234,7 @@ func (h *multiHandler) WithGroup(name string) slog.Handler {
 }
 
 func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_tls.Config, lc fx.Lifecycle) (*grpc_srv.Server, error) {
-
+	
 	var ssl *tls.Config
 	if creds != nil {
 		ssl = creds.Server
@@ -274,7 +276,7 @@ func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_
 //	return c, nil
 //}
 
-func ProvideSD(cfg *config.Config, log *slog.Logger, lc fx.Lifecycle) (discovery.DiscoveryProvider, error) {
+func ProvideSD(cfg *config.Config, log *slog.Logger, srv *grpc_srv.Server, lc fx.Lifecycle) (discovery.DiscoveryProvider, error) {
 	provider, err := discovery.DefaultFactory.CreateProvider(
 		discovery.ProviderConsul,
 		log,
@@ -298,7 +300,12 @@ func ProvideSD(cfg *config.Config, log *slog.Logger, lc fx.Lifecycle) (discovery
 			"branch":         branch,
 			"buildTimestamp": buildTimestamp,
 		}
-		si.Endpoints = []string{(&url.URL{Scheme: "grpc", Host: cfg.Service.Address}).String()}
+		si.Endpoints = []string{(&url.URL{
+			// [input]: cfg.Service.Address,
+			// [serve]: srv.Addr ; [::]
+			// [advert]: [::] ~ public IP
+			Scheme: "grpc", Host: srv.Advertise(),
+		}).String()}
 	}
 
 	lc.Append(fx.Hook{
@@ -322,11 +329,25 @@ func ProvideSD(cfg *config.Config, log *slog.Logger, lc fx.Lifecycle) (discovery
 func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle) (pubsub.Provider, error) {
 
 	var (
-		pubsubConfig  = config.Pubsub
-		loggerAdapter = watermill.NewSlogLogger(logger)
-		pubsubFactory factory.Factory
 		err           error
+		pubsubConfig  = config.Pubsub
+		pubsubFactory factory.Factory
+		// loggerAdapter = watermill.NewSlogLogger(logger)
+		loggerAdapter watermill.LoggerAdapter
 	)
+
+	// WBTL_LOG_DEBUG=broker
+	if logx.Debug("broker", "rabbitmq") {
+		// enable
+		loggerAdapter = watermill.NewSlogLogger(
+			logx.ModuleLogger("broker", logger),
+		)
+	} else {
+		// disable ; default
+		loggerAdapter = watermill.NewSlogLogger(
+			slog.New(slog.DiscardHandler),
+		)
+	}
 
 	driver := strings.ToLower(pubsubConfig.Driver)
 	switch driver {
@@ -365,16 +386,17 @@ func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecy
 	return pubsub.NewDefaultProvider(router, pubsubFactory)
 }
 
-func ProvideNewDBConnection(cfg *config.Config, l *slog.Logger, lc fx.Lifecycle) (*pg.DB, error) {
-	db, err := pg.New(context.Background(), l, cfg.Postgres.DSN)
+func ProvideNewDBConnection(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle) (*pg.DB, error) {
+	db, err := pg.New(context.Background(), logger, config.Postgres.DSN)
 	if err != nil {
 		return nil, err
 	}
 
 	pg.SetDefault(db)
 
-	lc.Append(fx.Hook{
+	runtime.Append(fx.Hook{
 		OnStop: func(ctx context.Context) (_ error) {
+			// blocking call
 			db.Client().Close()
 			return // nil
 		},

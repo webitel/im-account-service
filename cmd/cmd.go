@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"os"
-	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -12,25 +11,18 @@ const (
 	ServiceNamespace = "webitel"
 )
 
-var (
-	version        = "0.0.0"
-	commit         = "hash"
-	commitDate     = time.Now().String()
-	branch         = "branch"
-	buildTimestamp = ""
-)
-
 func Run() error {
 
 	app := &cli.App{
 		Name:  ServiceName,
-		Usage: "Microservice for Webitel platform",
+		Usage: "Webitel IM Account microservice",
 		Flags: nil, // []cli.Flag{}
 		// Commands: []*cli.Command{
 		// 	// serverCmd(),
 		// 	server.CMD(),
 		// 	migrate.CMD(),
 		// },
+		Version: Version(),
 		Commands: commands,
 	}
 
