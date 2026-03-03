@@ -11,22 +11,32 @@ var debugMode any // bool, []string
 
 func init() {
 
+  debugMode = false // default: disabled
   vs := os.Getenv("WBTL_LOG_DEBUG")
   // if all, e := strconv.ParseBool(vs); e == nil {
   //   debug = all // bool
   //   return
   // }
   vs = strings.ToLower(vs)
-  switch vs {
-	case "1", "on", "yes", "true", "all":
-		debugMode = true
-    return
-	case "", "0", "off", "no", "false", "none":
-		debugMode = false
-    return
-	}
-  // strings.ToLower(!) above ..
-  debugMode = strings.Split(vs, ",")
+  modules := strings.Split(vs, ",")
+  for i, n := 0, len(modules); i < n; i++ {
+    switch modules[i] {
+    case "1", "on", "yes", "true", "all":
+      debugMode = true // ALL
+      return
+    case "0", "off", "no", "false", "none":
+      // debugMode = false // default: false
+      return
+    case "":
+      modules = append(modules[:i], modules[i+1:]...)
+      n--
+      i--
+    } 
+  }
+  if len(modules) > 0 {
+    // debugMode.([]string) ; set of module name(s) to enable debug for ..
+    debugMode = modules
+  }
 }
 
 func isDebugModule(name string) bool {

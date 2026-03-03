@@ -6,16 +6,20 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/webitel/im-account-service/config"
 	infra_tls "github.com/webitel/im-account-service/infra/tls"
 	"github.com/webitel/im-account-service/infra/x/grpcx"
 	"github.com/webitel/im-account-service/infra/x/logx"
+	"github.com/webitel/im-account-service/internal/errors"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	// "google.golang.org/grpc/status"
 )
 
 var Module = fx.Module(
@@ -90,6 +94,56 @@ func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 			})),
 		)
 	}
+
+	const operationTimeout = (30 * time.Second) // TODO: configurable
+	var errOperationTimeout = errors.New(
+		errors.Code(http.StatusGatewayTimeout),
+		errors.Status("OPERATION_TIMEOUT"),
+		errors.Message("service: operation timed out"),
+	)
+	serverOpts = append(serverOpts, grpc.ChainUnaryInterceptor(
+		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, invoke grpc.UnaryHandler) (res any, err error) {
+
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeoutCause(
+				ctx, operationTimeout, errOperationTimeout,
+			)
+			defer cancel()
+			
+			res, err = invoke(ctx, req)
+
+			if err != nil {
+				cause := context.Cause(ctx)
+				if cause != ctx.Err() {
+					err = context.Cause(ctx)
+				}
+			}
+
+			return // res, err
+
+			// if err == context.DeadlineExceeded {
+			// 	cause := context.Cause(ctx)
+			// 	if cause != ctx.Err() {
+			// 		err = cause
+			// 	}
+			// }
+
+			// type grpcstatus interface {
+			// 	GRPCStatus() *status.Status
+			// }
+			
+			// if impl, ok := err.(grpcstatus); ok {
+			// 	if impl.GRPCStatus().Message() == context.DeadlineExceeded.Error() {
+			// 		cause := context.Cause(ctx)
+			// 		if cause != ctx.Err() {
+			// 			err = cause
+			// 		}
+			// 	}
+			// }
+
+			// return // res, err
+		}),
+	)
 
 	s := grpc.NewServer(serverOpts...)
 

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net/http"
 
 	"github.com/webitel/im-account-service/infra/tls"
 	"go.uber.org/fx"
@@ -11,9 +12,11 @@ import (
 	"github.com/webitel/im-account-service/cmd"
 	"github.com/webitel/im-account-service/config"
 	grpcsrv "github.com/webitel/im-account-service/infra/server/grpc"
+	"github.com/webitel/im-account-service/infra/x/httpx"
 	"github.com/webitel/im-account-service/infra/x/logx"
-	"github.com/webitel/im-account-service/internal/handler"
-	apiV1 "github.com/webitel/im-account-service/internal/handler/grpc/v1"
+
+	"github.com/webitel/im-account-service/internal/service"
+	apiV1 "github.com/webitel/im-account-service/internal/service/api/grpc/v1"
 
 	// "github.com/webitel/im-account-service/internal/service"
 	"github.com/webitel/im-account-service/internal/store/postgres"
@@ -21,6 +24,15 @@ import (
 
 func NewApp(cfg *config.Config) *fx.App {
 	return fx.New(
+		fx.Invoke(func ()  {
+			// HTTP Client trafic DUMP !
+			if logx.Debug("http", "https") {
+				http.DefaultTransport = httpx.TransportDump{
+					Transport: http.DefaultTransport,
+					WithBody: true,
+				}
+			}
+		}),
 		fx.Supply(cfg),
 		fx.Provide(
 			cmd.ProvideLogger,
@@ -43,9 +55,8 @@ func NewApp(cfg *config.Config) *fx.App {
 		}),
 		tls.Module,
 		postgres.Module,
-		// service.Module,
 		grpcsrv.Module,
-		handler.Module,
+		service.Module,
 		apiV1.Module,
 	)
 }

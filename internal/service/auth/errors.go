@@ -1,4 +1,4 @@
-package handler
+package auth
 
 import "github.com/webitel/im-account-service/internal/errors"
 

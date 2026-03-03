@@ -68,24 +68,14 @@ func (c *ApplicationService) CreateApp(ctx context.Context, req *impb.CreateAppR
 	// return c.UnimplementedApplicationsServer.CreateApp(ctx, req)
 
 	input := req.GetApp()
-	src := model.NewApplication(input)
+	app := model.NewApplication(input)
 
-	// app := &impb.Application{
-	// 	Dc:       input.GetDc(),
-	// 	Id:       uuid.NewString(),
-	// 	Name:     input.GetName(),
-	// 	About:    input.GetAbout(),
-	// 	Block:    nil, // &impb.Revocation{},
-	// 	Client:   input.GetClient(),
-	// 	Service:  input.GetService(), // LIMIT, UPDATES, PUSH
-	// 	Account:  nil,                // &impb.Account{},
-	// 	Contacts: input.GetContacts(),
-	// }
+	// TODO: Validation
 
 	app, err := c.store.Create(
 		store.CreateAppRequest{
 			Context: ctx,
-			App:     src,
+			App:     app,
 		},
 	)
 

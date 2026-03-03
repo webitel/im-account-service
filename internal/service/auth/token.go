@@ -1,4 +1,4 @@
-package handler
+package auth
 
 import (
 	"cmp"
@@ -8,23 +8,15 @@ import (
 	"github.com/webitel/im-account-service/infra/log/slogx"
 	"github.com/webitel/im-account-service/internal/errors"
 	"github.com/webitel/im-account-service/internal/model"
+	"github.com/webitel/im-account-service/internal/service"
 	"github.com/webitel/im-account-service/internal/store"
 )
 
-// Session (internal) Authentication scheme
-type SessionAuth struct{}
+// TokenAuthentication Options
+type TokenAuthentication struct {}
 
-var _ Authentication = SessionAuth{}
-
-// Authenticate ctx.Account (User) Identity.
-// [ACR] stands for [A]uthenticated [C]redentials [R]ule.
-// If [acr] was returned, it means that the authorization data
-// satisfies the authentication scheme policy and no further methods will be involved
-//
-// Non-nil [acr] indicates accept of credentials
-// Non-nil [err] indicates failure of verification
-func (SessionAuth) Auth(rpc *Context) (acr any, err error) {
-	// [X-Webitel-Access]: [token] ; Authorization
+func (x TokenAuthentication) Authenticate(rpc *service.Context, hint bool) (acr any, err error) {
+	// [X-Webitel-Access]: [access_token] ; Authorization
 	bearer := model.GetHeaderH2(
 		rpc.Header, model.H2_X_Access_Token,
 	)
@@ -48,14 +40,14 @@ func (SessionAuth) Auth(rpc *Context) (acr any, err error) {
 }
 
 // String policy name
-func (SessionAuth) String() string {
-	return "session"
+func (TokenAuthentication) String() string {
+	return "bearer" // "token" // "app" // "external" // "session"
 }
 
 // prefix for quick indication of the service [internal] access token
 const SessionTokenPrefix = "im:"
 
-func SessionAuthentication(rpc *Context, token string) (ok bool, err error) {
+func SessionAuthentication(rpc *service.Context, token string) (ok bool, err error) {
 	if ok = (SessionTokenPrefix != ""); ok {
 		if token, ok = strings.CutPrefix(token, SessionTokenPrefix); !ok {
 			// This is NOT expected token format
@@ -131,7 +123,7 @@ func SessionAuthentication(rpc *Context, token string) (ok bool, err error) {
 	return true, AuthorizeSession(rpc, session)
 }
 
-func AuthorizeSession(rpc *Context, session *model.Authorization) error {
+func AuthorizeSession(rpc *service.Context, session *model.Authorization) error {
 
 	if session == nil {
 		return ErrTokenInvalid
@@ -207,14 +199,14 @@ func AuthorizeSession(rpc *Context, session *model.Authorization) error {
 	// 	Iss: ref.Iss,
 	// 	Sub: ref.Sub,
 	// }
-	lookup := []ContactSearchOption{
-		FindContactDc(session.Dc),
+	lookup := []service.ContactSearchOption{
+		service.FindContactDc(session.Dc),
 	}
 	if source.Id != "" {
-		lookup = append(lookup, FindContactId(source.Id))
+		lookup = append(lookup, service.FindContactId(source.Id))
 	}
 	if source.Iss != "" && source.Sub != "" {
-		lookup = append(lookup, FindContactSubject(source.Iss, source.Sub))
+		lookup = append(lookup, service.FindContactSubject(source.Iss, source.Sub))
 	}
 	// Resolve Contact profile
 	contact, err := rpc.Service.GetContact(rpc.Context, lookup...)
@@ -235,14 +227,4 @@ func AuthorizeSession(rpc *Context, session *model.Authorization) error {
 
 	// [ OK ]
 	return nil
-}
-
-var TokenGen = model.GenerateOptions{
-	Type:    "bearer",
-	Length:  64,
-	Expires: 0,
-	Refresh: nil,
-	GenOpts: []model.GenerateOption{
-		model.TokenNoRefresh(),
-	},
 }

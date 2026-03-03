@@ -1,4 +1,4 @@
-package handler
+package auth
 
 import (
 	"cmp"
@@ -6,14 +6,15 @@ import (
 
 	webitel "github.com/webitel/im-account-service/internal/client/webitel/auth"
 	"github.com/webitel/im-account-service/internal/model"
+	"github.com/webitel/im-account-service/internal/service"
 )
 
 // Webitel Authentication scheme
-type WebitelAuth struct {
+type WebitelAuthentication struct {
 	Client *webitel.Client
 }
 
-var _ Authentication = WebitelAuth{}
+// var _ service.Authentication = WebitelAuthentication{}
 
 // Authenticate ctx.Account (User) Identity.
 // [ACR] stands for [A]uthenticated [C]redentials [R]ule.
@@ -22,7 +23,7 @@ var _ Authentication = WebitelAuth{}
 //
 // Non-nil [acr] indicates accept of credentials
 // Non-nil [err] indicates failure of verification
-func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
+func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (acr any, err error) {
 	// [X-Webitel-Access]: [token] ; Authorization
 	bearer := model.GetHeaderH2(
 		rpc.Header, model.H2_X_Access_Token,
@@ -48,7 +49,13 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 	}
 
 	// [X-Webitel-Client]: [app-id] ; OPTIONAL
-	err = AppAuthorization(false)(rpc)
+	// err = AppAuthorization(false)(rpc)
+	err = ClientAuthentication{
+		// Hint:      nil, // []string{},
+		Require:   false,
+		// GrantType: "",
+	}.Do(rpc)
+	
 	if err != nil {
 		// Header specified, but invalid
 		return bearer, err
@@ -114,7 +121,11 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 	rpc.Contact = endUser
 
 	// Find session for ( device + contact )
-	err = DeviceAuthorization(false)(rpc)
+	// err = DeviceAuthorization(false)(rpc)
+	err = DeviceAuthentication{
+		Require: false,
+	}.Do(rpc)
+	
 	if err != nil {
 		return bearer, err
 	}
@@ -124,7 +135,7 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 
 	if rpc.Device.Id != "" {
 		session, err = rpc.Service.GetSession(
-			rpc.Context, func(req *SessionListOptions) error {
+			rpc.Context, func(req *service.SessionListOptions) error {
 				// UNIQUE( device_id, contact_id )
 				req.DeviceId = rpc.Device.Id
 				req.ContactId = &model.ContactId{
@@ -178,6 +189,6 @@ func (x WebitelAuth) Auth(rpc *Context) (acr any, err error) {
 }
 
 // String policy name
-func (WebitelAuth) String() string {
+func (WebitelAuthentication) String() string {
 	return "webitel"
 }

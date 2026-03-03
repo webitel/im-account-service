@@ -1,4 +1,4 @@
-package handler
+package service
 
 import (
 	"context"
@@ -8,12 +8,19 @@ import (
 )
 
 // GetApplication by given global [client_id] identifier
-func (srv *Service) GetApplication(ctx context.Context, clientId string) (*model.Application, error) {
+func (c *Manager) GetApplication(ctx context.Context, clientId string) (app *model.Application, err error) {
 
 	// TODO: cache[ing]
+	app, _ = c.cache.Get(_ClientId(clientId)).(*model.Application)
+	if app != nil {
+		return app, nil
+	}
+	defer func() {
+		c.Cache(app, err)
+	} ()
 
-	apps := srv.opts.Apps
-	app, err := model.Get(apps.Search(
+	apps := c.opts.Apps
+	app, err = model.Get(apps.Search(
 		store.SearchAppRequest{
 			Context: ctx,
 			Dc:      0,
@@ -23,13 +30,13 @@ func (srv *Service) GetApplication(ctx context.Context, clientId string) (*model
 		},
 	))
 
-	if err != nil {
-		return nil, err
-	}
-
 	// Make sure the result satisfies the requested [client_id]
 	if app != nil && app.ClientId() != clientId {
 		app = nil // sanitize ; invalid [client_id] ; NOT Found !
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return app, nil

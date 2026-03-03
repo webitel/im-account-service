@@ -40,14 +40,14 @@ func (v *ContactId) TextValue() (dst pgtype.Text, err error) {
 	raw.AppendValue(pgtype.TextOID, v.Iss)
 	raw.AppendValue(pgtype.TextOID, v.Sub)
 
-	text, err := raw.Finish()
+	row, err := raw.Finish()
 
 	if err != nil {
 		return dst, err
 	}
 
 	dst = pgtype.Text{
-		String: string(text),
+		String: string(row),
 		Valid:  true,
 	}
 	return

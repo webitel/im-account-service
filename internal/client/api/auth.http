@@ -16,6 +16,7 @@ oneofs: true
 # @name inspect
 GRPC /webitel.im.service.auth.v1.Account/Inspect
 x-webitel-device: {{device_id}}
+x-webitel-client: {{client_id}}
 x-webitel-access: {{api_token}}
 
 {
@@ -28,7 +29,7 @@ x-webitel-access: {{api_token}}
 # @name login
 GRPC /webitel.im.service.auth.v1.Account/Token
 x-webitel-device: {{device_id}}
-x-webitel-client: {{client_id}}
+x-webitel-access: {{api_token}}
 
 {
   "state": "my_app_client_login_state_id",
@@ -36,7 +37,7 @@ x-webitel-client: {{client_id}}
     "send_messages",
     "edit_messages"
   ],
-  "clientId": {{client_id}},
+  "client_id": "{{client_id}}",
   "identity": {
     "iss": "https://example.com/people",
     "sub": "j.doe",
@@ -57,9 +58,31 @@ x-webitel-client: {{client_id}}
   }
 }
 
+// Script section starts after a blank line
 {{@response
-  exports.api_token = JSON.parse(response.body).token.access_token;
+  // Check if the request was successful (no gRPC error)
+  // The gRPC spec says a successful call returns an OK status (HTTP 200)
+  // httpYac handles the status internally, if the script runs the call was likely successful
+  
+  if (response.parsedBody && response.parsedBody.token) {
+    // If the 'token' field exists in the response, save it as an environment variable
+    console.log("Login successful, extracting access_token.");
+    
+    // Access the 'token' field
+    exports.api_token = response.parsedBody.token.access_token;
+    
+    // // Store it in the httpYac environment variables for reuse
+    // httpyac.variables.set("authToken", authToken);
+  } else {
+    console.error("Login failed or 'token' field missing from response.");
+    // You could also check response status details if needed, but in case of success 
+    // the parsedBody contains the expected message
+  }
 }}
+
+# {{@response
+#   exports.api_token = JSON.parse(response.body).token.access_token;
+# }}
 
 ###
 
@@ -76,6 +99,7 @@ x-webitel-access: {{api_token}}
 # @name register_device
 GRPC /webitel.im.service.auth.v1.Account/RegisterDevice
 x-webitel-device: {{device_id}}
+x-webitel-client: {{client_id}}
 x-webitel-access: {{api_token}}
 
 {
@@ -89,6 +113,7 @@ x-webitel-access: {{api_token}}
 # @name unregister_device
 GRPC /webitel.im.service.auth.v1.Account/UnregisterDevice
 x-webitel-device: {{device_id}}
+x-webitel-client: {{client_id}}
 x-webitel-access: {{api_token}}
 
 {

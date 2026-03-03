@@ -28,7 +28,7 @@ GRPC /webitel.im.service.admin.v1.Applications/SearchApps
   "dc": 1
 }
 
-@client_id={{JSON.parse(response.body).data[0].id}}
+# @client_id={{JSON.parse(response.body).data[0].id}}
 
 # {{+after
 #   // console.info(`gRPC response is: ${response.body}`);
@@ -48,21 +48,37 @@ GRPC /webitel.im.service.admin.v1.Applications/CreateApp
     "dc": "1",
     "name": "My First App",
     "about": "Development purpose",
-    "client": {
+    "clients": {
       "ua": [
         "grpcurl/*",
         "Mozilla/*"
       ],
+      "iDp": {
+        "https://example.com/people": "example",
+        "https://dev.webitel.com/portal": "portal",
+        "https://example.org/oauth/clients": "example"
+      },
+      "jwt": {
+        "enabled": true,
+        "jwks": "eyJrZXlzIjpbeyJhbGciOiJSUzI1NiIsImUiOiJBUUFCIiwia2lkIjoiSlJ3b2t1czFQdWtKZmhodUdrWHoxZyIsImt0eSI6IlJTQSIsIm4iOiJyVTRfZ3Z2LWUtVk5mTmUyRDRPUUNtNUlBMEd3ZTk3dm5Td0hmQU45QkRuYlVuenRqNXhVZnJuYTlnalMyNzl4TVNUZ09KWWd0alp5RFZadExsYUFSbVNZQ1dURUpjUXhLUHp4aFZ2WVdMYi1mVF9aRTMtMTBhR1dnQUJrNElRWnU0S3pQb0pyNHVBcnhEVm5iNXFuemlmNnBqWVNoWFY3bTB3QTZ5T1RfZTZtRjlPTW9JVDlIZUdMTjNWZVBZczhzaUd5dWhxT2JYRlVpLXdwNjhFLWVjWnpmelpwTWV2UmlUeHBZaTJnRXdJXzRoOW1fOF9vMXBHWDJCM25LV215b2MxeWk2YWZxbGFqd3EwUTZlUXBuS1BoSmkwVTg2TzBZcTU0aXlwWUtNSXhFc2JjWW5HZV9ieTBIOVc1VzBoZjczM251Z0ptZHdDbkhsbU9PSmU0YXciLCJ1c2UiOiJzaWcifSx7ImFsZyI6IlJTMjU2IiwiZSI6IkFRQUIiLCJraWQiOiJtWEY3VXc4TG9iTlhEVEFFa21YdWRRIiwia3R5IjoiUlNBIiwibiI6InU3UUxvc3YxZm1UX3lFMDNoaXZaSzN0UU5rZTNNNGd4SE9wNWRjVFpfTDV4TGJlUHpkbVlJbktJeXBZZHI3empNRDVwRTllNW45RzVidUh1UElVN3cxb28tV2pSTV9fN1BrNDI3eFcyRVBUeTFqeG1La1U0NUhoRzRkOXlvaU5TT0tTb3I2NkVXM0FwSW1EM2lKN05XeGxIV0dtZ3c1S1IyUHZhcDBoYWM0dXZrQkRUZ2lnbC1rSGhKU3JKZDltT0pOQnlDa1dMU0o2QndUR0dMTkxKQ0NwcS1yM25UQTNBbTdsSU9iYnotTERZMEhENEFWSk5VdUZQNE40Z25iYTFTa2MwWEM3cVZJTEUzWXNlM1ZTdDlFRXBmc0pXZ29xWGFydUVZN08wc3pqaWQwSS15cklrWU5SYTExNzJJR1drLXFqbTc5N1pTanB1RHJLaTd2cVhhdyIsInVzZSI6InNpZyJ9XX0=",
+        "jwks_uri": "http://127.0.0.1:9365/.well-known/jwks.json",
+        "claims": {
+          "sub": "iid|none|uid",
+          "name": "my_var|var1",
+          "scope": "",
+          "audience": "aud"
+        }
+      },
       "net": {
         "cidr": [
           "127.0.0.1/32",
-          "172.17.0.0/16",
-          "10.10.10.0/28"
+          "10.10.10.0/24",
+          "172.17.0.0/16"
         ]
       },
       "web": {
         "origin": [
-          "localhhost:8080"
+          "http://localhost:8080"
         ]
       }
     },
@@ -70,46 +86,25 @@ GRPC /webitel.im.service.admin.v1.Applications/CreateApp
       "secret": "",
       "send_update": {
         "grpc": {
-          "host": "172.17.0.1:26125",
-          "addr": ""
+          "host": "172.17.0.1:26125"
         },
         "events": [
           "*"
-        ],
-        "token": ""
+        ]
       },
       "push_service": {
-        "web": {
-          "proxy": "http://172.17.0.1:26124/push/web",
-          "token": ""
-        },
         "fcm": {
-          "proxy": "http://172.17.0.1:26124/push/fcm",
-          "account": ""
+          "proxy": "http://172.17.0.1:26124/push/fcm"
+        },
+        "web": {
+          "proxy": "http://172.17.0.1:26124/push/web"
         }
       }
     },
     "contacts": {
-      "auth": {
-        "issuers": [
-          "https://example.com/people",
-          "https://dev.webitel.com/portal",
-          "https://example.org/oauth/clients"
-        ],
-        "protos": {
-          "https://example.com/people": "example",
-          "https://dev.webitel.com/portal": "portal",
-          "https://example.org/oauth/clients": "example"
-        },
-        "jwks": "",
-        "jwks_uri": "",
-        "jwt_identity": {
-          "sub": "iid|uid"
-        }
-      },
       "list": [
         {
-          "proto": "example"
+          "type": "example"
         },
         {
           "user_id": "bot_account_id_that_should_be_visible_for_this_app"

@@ -6,10 +6,7 @@ import (
 
 var Module = fx.Module(
 	"grpc",
-	// fx.Provide(NewAccountService),
-	// fx.Provide(NewApplicationService),
-	// fx.Invoke(RegisterAccountService),
-	// fx.Invoke(RegisterApplicationService),
+	// options
 	fx.Provide(
 		NewAccountService,
 		NewApplicationService,

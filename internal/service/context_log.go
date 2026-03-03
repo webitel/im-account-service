@@ -1,4 +1,4 @@
-package handler
+package service
 
 import (
 	"cmp"
@@ -76,10 +76,14 @@ func (x *ctxLogValue) Attrs() (attrs []slog.Attr) {
 			))
 		}
 		if device.Push.GetToken() != nil {
-			push := device.Push.ProtoReflect()
+			// PUSH: token.(service).kind
+			reg := device.Push.ProtoReflect()
+			// via := string(reg.WhichOneof(
+			// 	reg.Descriptor().Oneofs().ByName("token"),
+			// ).Name())
 			attrs = append(attrs, slog.String(
-				"client.push", string(push.WhichOneof(
-					push.Descriptor().Oneofs().ByName("token"),
+				"client.push", string(reg.WhichOneof(
+					reg.Descriptor().Oneofs().ByName("token"),
 				).Name()),
 			))
 		}
@@ -152,8 +156,8 @@ func (x *ctxLogValue) LogValue() slog.Value {
 	return x.val
 }
 
-// LogEnabled reports whether given [level] is enabled for logging
-func (rpc *Context) LogEnabled(ctx context.Context, level slog.Level) bool {
+// CanLog reports whether given [level] is enabled for logging
+func (rpc *Context) CanLog(ctx context.Context, level slog.Level) bool {
 	if rpc.Logger != nil {
 		ctx = cmp.Or(ctx, rpc.Context)
 		return rpc.Logger.Enabled(ctx, level)
@@ -164,7 +168,7 @@ func (rpc *Context) LogEnabled(ctx context.Context, level slog.Level) bool {
 // Log record message ..
 func (rpc *Context) Log(ctx context.Context, level slog.Level, msg string, args ...any) {
 	ctx = cmp.Or(ctx, rpc.Context)
-	if !rpc.LogEnabled(ctx, level) {
+	if !rpc.CanLog(ctx, level) {
 		return
 	}
 	// expose Context.(Authentication) attributes

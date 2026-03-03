@@ -1,6 +1,7 @@
 package grpcx
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -908,7 +909,7 @@ func (h *dumpHandler) onRpcEnd(ctx context.Context, event *stats.End) {
 	// [DEBUG-4] Enabled ?
 	var level = h.opts.Debug
 	if event.Error != nil {
-		level = slog.LevelWarn // (slog.LevelError + 3)
+		level = slog.LevelError // slog.LevelWarn // (slog.LevelError + 3)
 	}
 	if !h.opts.can(ctx, level) {
 		return
@@ -947,27 +948,27 @@ func (h *dumpHandler) onRpcEnd(ctx context.Context, event *stats.End) {
 	}
 
 	var (
-		beginTime = call.Begin.BeginTime
-		recvTime = call.InPayload.RecvTime
-		sentTime = call.OutPayload.SentTime
 		endTime = call.End.EndTime
+		sentTime = cmp.Or(call.OutPayload.SentTime, endTime)
+		recvTime = call.InPayload.RecvTime
+		beginTime = call.Begin.BeginTime
 	)
 
-	const skrew = time.Microsecond
+	const skew = time.Microsecond
 
 	if event.Client {
 		// client: send/recv
 		args = append(args,
-			slog.Duration("time.send", sentTime.Sub(beginTime).Round(skrew)),
-			slog.Duration("time.recv", recvTime.Sub(sentTime).Round(skrew)),
-			slog.Duration("time.took", endTime.Sub(beginTime).Round(skrew)),
+			slog.Duration("time.send", sentTime.Sub(beginTime).Round(skew)),
+			slog.Duration("time.recv", recvTime.Sub(sentTime).Round(skew)),
+			slog.Duration("time.took", endTime.Sub(beginTime).Round(skew)),
 		)
 	} else {
 		// server: recv/send
 		args = append(args,
-			slog.Duration("time.recv", recvTime.Sub(beginTime).Round(skrew)),
-			slog.Duration("time.send", endTime.Sub(sentTime).Round(skrew)),
-			slog.Duration("time.took", endTime.Sub(recvTime).Round(skrew)),
+			slog.Duration("time.recv", recvTime.Sub(beginTime).Round(skew)),
+			slog.Duration("time.send", endTime.Sub(sentTime).Round(skew)),
+			slog.Duration("time.took", endTime.Sub(recvTime).Round(skew)),
 		)
 	}
 	

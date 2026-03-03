@@ -252,6 +252,22 @@ func Errorf(message string, args ...any) *Error {
 	return New(Message(message, args...))
 }
 
+// (#400) BAD_REQUEST
+//
+//	 New(
+//		Status("BAD_REQUEST"),
+//		Code(http.StatusBadRequest),
+//		opts...,
+//	)
+func BadRequest(opts ...Option) *Error {
+	err := New(
+		Status("BAD_REQUEST"),
+		Code(http.StatusBadRequest),
+	)
+	err.init(opts)
+	return err
+}
+
 // (#401) UNAUTHORIZED
 //
 //	 New(
@@ -268,17 +284,17 @@ func Unauthorized(opts ...Option) *Error {
 	return err
 }
 
-// (#400) BAD_REQUEST
+// (#403) FORBIDDEN
 //
 //	 New(
-//		Status("BAD_REQUEST"),
-//		Code(http.StatusBadRequest),
+//		Status("FORBIDDEN"),
+//		Code(http.StatusForbidden),
 //		opts...,
 //	)
-func BadRequest(opts ...Option) *Error {
+func Forbidden(opts ...Option) *Error {
 	err := New(
-		Status("BAD_REQUEST"),
-		Code(http.StatusBadRequest),
+		Status("FORBIDDEN"),
+		Code(http.StatusForbidden),
 	)
 	err.init(opts)
 	return err
@@ -299,3 +315,37 @@ func NotFound(opts ...Option) *Error {
 	err.init(opts)
 	return err
 }
+
+// (#500) INTERNAL
+//
+//	 New(
+//		Status("INTERNAL"),
+//		Code(http.StatusInternalServerError),
+//		opts...,
+//	)
+func Internal(opts ...Option) *Error {
+	err := New(
+		Status("INTERNAL"),
+		Code(http.StatusInternalServerError),
+	)
+	err.init(opts)
+	return err
+}
+
+// (#502) BAD_GATEWAY
+//
+//	 New(
+//		Status("BAD_GATEWAY"),
+//		Code(http.StatusBadGateway),
+//		opts...,
+//	)
+func BadGateway(opts ...Option) *Error {
+	err := New(
+		Status("BAD_GATEWAY"),
+		Code(http.StatusBadGateway),
+	)
+	err.init(opts)
+	return err
+}
+
+

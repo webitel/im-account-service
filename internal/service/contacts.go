@@ -1,4 +1,4 @@
-package handler
+package service
 
 import (
 	"cmp"
@@ -68,10 +68,10 @@ func FindContactSubject(iss, sub string) ContactSearchOption {
 	}
 }
 
-func (srv *Service) GetContact(ctx context.Context, lookup ...ContactSearchOption) (*model.Contact, error) {
+func (c *Manager) GetContact(ctx context.Context, lookup ...ContactSearchOption) (*model.Contact, error) {
 
 	// perform lookup by dc:iss/sub
-	repo := srv.opts.Contacts
+	repo := c.opts.Contacts
 	req := &impb.SearchContactRequest{
 		Page: 1,
 		Size: 1,
@@ -116,9 +116,11 @@ func (srv *Service) GetContact(ctx context.Context, lookup ...ContactSearchOptio
 	return &res, nil
 }
 
-func (srv *Service) AddContact(ctx context.Context, set *model.Contact) error {
-	// TODO: Client.Service("im-contact-service").SaveContact(set)
-	repo := srv.opts.Contacts
+func (c *Manager) AddContact(ctx context.Context, set *model.Contact) error {
+	
+	c.Debug(ctx, "Updating latest Contact information ...")
+
+	repo := c.opts.Contacts
 	dst, err := repo.Upsert(
 		ctx, &impb.CreateContactRequest{
 
