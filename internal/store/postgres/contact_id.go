@@ -4,9 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/webitel/im-account-service/infra/db/pg"
+	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/webitel/im-account-service/internal/model"
-	"github.com/webitel/im-account-service/internal/store/postgres/pgtypex"
 )
 
 type ContactId model.ContactId
@@ -15,6 +14,86 @@ func (v *ContactId) IsNull() bool {
 	return v == nil || *v == ContactId{}
 }
 
+// ---------- Composite Type Support ---------- //
+
+// -- IM Contact reference info
+// CREATE TYPE im_account.refcontact AS
+// (
+//   --[ attribute_name data_type [ COLLATE collation ] [, ... ] ] )
+//   dc  int8 -- service (internal) business (domain) identifier
+// , id  uuid -- service (internal) UNIQUE subject identifier ; OPTIONAL
+// , iss text -- service (external) issuer (provider) identifier ; REQUIRED
+// , sub text -- service (external) subject identifier at issuer ; REQUIRED
+
+// );
+
+var _ pgtype.CompositeIndexGetter = (*ContactId)(nil)
+
+// Index returns the element at fd.
+func (v *ContactId) Index(fd int) any {
+	switch fd {
+	case 0:
+		{
+			// return (zeronull.Int8)(v.Dc)
+			return v.Dc // int8 NOT NULL DEFAULT 0
+		}
+	case 1:
+		{
+			return &v.Id // uuid NOT NULL
+		}
+	case 2:
+		{
+			return &v.Iss // text NOT NULL
+		}
+	case 3:
+		{
+			return &v.Sub // text NOT NULL
+		}
+	// case 4:
+	// 	{
+	// 		return &v.Type
+	// 	}
+	}
+	return fmt.Errorf("refcontact: unknown column index %d", fd)
+}
+
+var _ pgtype.CompositeIndexScanner = (*ContactId)(nil)
+
+// ScanIndex returns a value usable as a scan target for fd.
+func (v *ContactId) ScanIndex(fd int) any {
+	switch fd {
+	case 0:
+		{
+			return (*zeronull.Int8)(&v.Dc)
+		}
+	case 1:
+		{
+			// return (*zeronull.Text)(&v.Id)
+			return &v.Id // uuid NOT NULL
+		}
+	case 2:
+		{
+			return &v.Iss // text NOT NULL
+		}
+	case 3:
+		{
+			return &v.Sub // text NOT NULL
+		}
+	// case 4:
+	// 	{
+	// 		return &v.Type
+	// 	}
+	}
+	return fmt.Errorf("refcontact: unknown column index %d", fd)
+}
+
+// ScanNull sets the value to SQL NULL.
+func (v *ContactId) ScanNull() error {
+	// (*v) = ContactId{} // NULLify
+	return fmt.Errorf("refcontact: NOT NULL")
+}
+
+/*
 func (v *ContactId) TextValue() (dst pgtype.Text, err error) {
 
 	if v.IsNull() {
@@ -128,3 +207,4 @@ func scanContactId(ref **model.ContactId) any {
 		return nil
 	})
 }
+*/

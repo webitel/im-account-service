@@ -19,7 +19,7 @@ import (
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	"github.com/webitel/im-account-service/config"
-	"github.com/webitel/im-account-service/infra/db/pg"
+	"github.com/webitel/im-account-service/infra/postgres"
 	"github.com/webitel/im-account-service/infra/pubsub"
 	"github.com/webitel/im-account-service/infra/pubsub/factory"
 	"github.com/webitel/im-account-service/infra/pubsub/factory/amqp"
@@ -386,21 +386,33 @@ func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecy
 	return pubsub.NewDefaultProvider(router, pubsubFactory)
 }
 
-func ProvideNewDBConnection(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle) (*pg.DB, error) {
-	db, err := pg.New(context.Background(), logger, config.Postgres.DSN)
+func ProvideDB(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle) (*postgres.DB, error) {
+
+	dbo, err := postgres.New(
+		postgres.Logger(logger),
+		postgres.ConnOptions(
+			postgres.FallbackApplicationName(config.Service.Id),
+		),
+		postgres.DataSourceName(config.Postgres.DSN),
+	)
+
 	if err != nil {
 		return nil, err
 	}
 
-	pg.SetDefault(db)
+	postgres.SetDefault(dbo)
 
 	runtime.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			// check connection is available ?
+			return dbo.Client().Ping(ctx)
+		},
 		OnStop: func(ctx context.Context) (_ error) {
 			// blocking call
-			db.Client().Close()
+			dbo.Client().Close()
 			return // nil
 		},
 	})
 
-	return db, err
+	return dbo, err
 }

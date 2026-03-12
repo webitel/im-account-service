@@ -7,7 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/webitel/im-account-service/infra/db/pg"
+
+	"github.com/webitel/im-account-service/infra/postgres"
 	"github.com/webitel/im-account-service/internal/model"
 	"github.com/webitel/im-account-service/internal/store"
 	"github.com/webitel/im-account-service/internal/store/postgres/pgtypex"
@@ -18,12 +19,12 @@ import (
 var _ store.AppStore = (*AppStore)(nil)
 
 type AppStore struct {
-	db *pg.DB
+	dbo *postgres.DB
 }
 
-func NewAppStore(db *pg.DB) *AppStore {
+func NewAppStore(dbo *postgres.DB) *AppStore {
 	return &AppStore{
-		db: db,
+		dbo: dbo,
 	}
 }
 
@@ -80,7 +81,7 @@ func (c *AppStore) Search(req store.SearchAppRequest) (*model.ApplicationList, e
 		query += fmt.Sprintf(" LIMIT %d", (limit + 1))
 	}
 
-	rows, err := c.db.Client().Query(
+	rows, err := c.dbo.Client().Query(
 		req.Context, query, args,
 	)
 
@@ -188,7 +189,7 @@ func (c *AppStore) Create(req store.CreateAppRequest) (*model.Application, error
 		"config": jsonb,
 	}
 
-	_, err = c.db.Client().Exec(
+	_, err = c.dbo.Client().Exec(
 		req.Context, query, args,
 	)
 

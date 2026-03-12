@@ -38,7 +38,7 @@ func NewApp(cfg *config.Config) *fx.App {
 			cmd.ProvideLogger,
 			cmd.ProvideSD,
 			cmd.ProvidePubSub,
-			cmd.ProvideNewDBConnection,
+			cmd.ProvideDB,
 		),
 		fx.WithLogger(func(stdlog *slog.Logger) fxevent.Logger {
 			const debugLog = slog.LevelDebug

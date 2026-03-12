@@ -7,13 +7,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	ua "github.com/mileusna/useragent"
-	"github.com/webitel/im-account-service/infra/db/pg"
+
+	"github.com/webitel/im-account-service/infra/postgres"
 	"github.com/webitel/im-account-service/internal/errors"
 	"github.com/webitel/im-account-service/internal/model"
 	"github.com/webitel/im-account-service/internal/store"
@@ -22,18 +24,51 @@ import (
 )
 
 type SessionStore struct {
-	db *pg.DB
+	dbo *postgres.DB
 }
 
-func NewSessionStore(db *pg.DB) *SessionStore {
+func NewSessionStore(dbo *postgres.DB) *SessionStore {
+
+	dbo.Init(postgres.OnAfterConnect(func(ctx context.Context, conn *pgx.Conn) error {
+		// AfterConnect is called after a connection is established,
+		// but before it is added to the pool.
+		return RegisterDataTypes(ctx, conn)
+	}))
+
 	return &SessionStore{
-		db: db,
+		dbo: dbo,
 	}
 }
 
 var _ store.SessionStore = (*SessionStore)(nil)
 
 func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList, error) {
+
+	var (
+		contactId pgtype.UUID // filter: contact.id value
+		isValidDc = pgtypex.IsValidOid[int64]
+	)
+
+	if req.ContactId != nil {
+		if isValidDc(req.ContactId.Dc) {
+			if isValidDc(req.Dc) && req.Dc != req.ContactId.Dc {
+				// cross domain requests are NOT allowed ! NOT FOUND !
+				return nil, nil
+			}
+			if !isValidDc(req.Dc) {
+				// apply for whole request ...
+				req.Dc = req.ContactId.Dc
+			}
+		}
+		if vs := req.ContactId.Id; vs != "" {
+			_ = contactId.Scan(vs) // check below ..
+			if !contactId.Valid {
+				// expect: valid UUID string !
+				// NOT FOUND !
+				return nil, nil
+			}
+		}
+	}
 
 	// return c.SearchV2(req)
 
@@ -84,9 +119,33 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 		args["device_id"] = req.DeviceId
 		where = append(where, "a.device_id = @device_id")
 	}
-	if req.ContactId != nil {
-		args["contact_id"] = ((*ContactId)(req.ContactId))
-		where = append(where, "a.contact_id = @contact_id")
+	// if req.ContactId != nil {
+	// 	args["contact_id"] = ((*ContactId)(req.ContactId))
+	// 	where = append(where, "a.contact_id = @contact_id")
+	// }
+	if contact := req.ContactId; contact != nil {
+		// if ref.Dc != 0 {
+		// 	// applied above ..
+		// }
+		// if ref.Id != "" {
+		// 	var uid pgtype.UUID
+		// 	_ = uid.Scan(ref.Id) // string
+		// 	uid.Valid = true // force: enable ; eve
+		// 	args["contact_id"] = uid
+		// 	where = append(where, "(a.contact_id).id = @contact_id")
+		// }
+		if contactId.Valid {
+			args["contact_id"] = contactId // UUID
+			where = append(where, "(a.contact_id).id = @contact_id")
+		}
+		if contact.Iss != "" {
+			args["contact_iss"] = contact.Iss
+			where = append(where, "(a.contact_id).iss = @contact_iss")
+		}
+		if contact.Sub != "" {
+			args["contact_sub"] = contact.Sub
+			where = append(where, "(a.contact_id).sub = @contact_sub")
+		}
 	}
 	if req.PushToken != nil {
 		cond := "NOTNULL"
@@ -112,7 +171,7 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 	}
 
 	// PERFORM
-	rows, err := c.db.Client().Query(
+	rows, err := c.dbo.Client().Query(
 		req.Context, query, args,
 	)
 
@@ -139,7 +198,7 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 			func(row *model.Authorization) any { return &row.Device.App.String },
 			// device_id
 			func(row *model.Authorization) any { return &row.Device.Id },
-			// dpush_token
+			// push_token
 			func(row *model.Authorization) any {
 				return pgtypex.ScanBytesFunc(func(src []byte) error {
 
@@ -165,7 +224,7 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 				})
 			},
 			// contact_id
-			func(row *model.Authorization) any { return scanContactId(&row.Contact) },
+			func(row *model.Authorization) any { return (**ContactId)(unsafe.Pointer(&row.Contact)) }, // { return &row.Contact }, // { return scanContactId(&row.Contact) },
 			// metadata
 			func(row *model.Authorization) any { return &row.Metadata }, // json.Unmarshal
 			// created_at
@@ -278,7 +337,7 @@ func (c *SessionStore) Delete(ctx context.Context, sessionId string) error {
 	var (
 		deleteIds []string
 	)
-	err = c.db.Client().QueryRow(
+	err = c.dbo.Client().QueryRow(
 		ctx, query, args,
 	).Scan(
 		&deleteIds,
@@ -377,7 +436,7 @@ func (c *SessionStore) Create(ctx context.Context, session *model.Authorization)
 	}
 
 	var ok bool
-	err := c.db.Client().QueryRow(
+	err := c.dbo.Client().QueryRow(
 		ctx, query, args,
 	).Scan(&ok)
 
@@ -465,7 +524,7 @@ func (c *SessionStore) Update(ctx context.Context, session *model.Authorization)
 	}
 
 	var ok bool
-	err := c.db.Client().QueryRow(
+	err := c.dbo.Client().QueryRow(
 		ctx, query, args,
 	).Scan(&ok)
 
@@ -557,7 +616,7 @@ func (c *SessionStore) SearchV2(req store.ListSessionRequest) (*model.SessionLis
 	}
 
 	// PERFORM
-	rows, err := c.db.Client().Query(
+	rows, err := c.dbo.Client().Query(
 		req.Context, query, args...,
 	)
 
@@ -677,7 +736,7 @@ func (c *SessionStore) RegisterDevice(req store.RegisterDeviceRequest) error {
 
 	// PERFORM
 	var ok pgtype.Bool
-	err = c.db.Client().QueryRow(
+	err = c.dbo.Client().QueryRow(
 		req.Context, query, args,
 	).Scan(
 		&ok, pgtypex.ScanTextFunc(func(src pgtype.Text) error {
@@ -741,7 +800,7 @@ func (c *SessionStore) UnregisterDevice(req store.UnregisterDeviceRequest) error
 		// rows int64
 	)
 
-	err = c.db.Client().QueryRow(
+	err = c.dbo.Client().QueryRow(
 		req.Context, query, args,
 	).Scan(
 		&ok, // &rows,

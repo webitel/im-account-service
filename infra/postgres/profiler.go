@@ -1,4 +1,4 @@
-package pg
+package postgres
 
 import (
 	"context"
@@ -271,4 +271,45 @@ func slogValue(v any) slog.Value {
 	// return slog.StringValue(
 	// 	fmt.Sprintf("%+v", v),
 	// )
+}
+
+/*
+func pgtypeLogArgs(vs []any) slog.Value {
+	for _, v := range vs {
+		switch data := v.(type) {
+		case pgx.NamedArgs:
+			{
+				v2 := make(map[string]any, len(vs))
+				for param, value := range data {
+					v2
+				}
+			}
+		default:
+			{
+
+			}
+		}
+	}
+}
+*/
+
+var (
+	nullValue = slog.StringValue("NULL")
+)
+
+func pgtypeLogValue(v any) slog.Value {
+	if v == nil {
+		// return slog.AnyValue(nil)
+		return nullValue
+	}
+	// database/sql/driver.Valuer
+	if impl, _ := v.(driver.Valuer); impl != nil {
+		src, err := impl.Value()
+		if err != nil {
+			return slog.StringValue(fmt.Sprintf("$(ERROR: %s)", err))
+		}
+		return pgtypeLogValue(src)
+	}
+	// extensions here ..
+	return slog.AnyValue(v)
 }

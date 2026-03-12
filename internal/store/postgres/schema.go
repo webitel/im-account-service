@@ -1,9 +1,12 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
+	"unsafe"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	ua "github.com/mileusna/useragent"
 	"github.com/webitel/im-account-service/internal/graphql"
@@ -300,7 +303,9 @@ func init() {
 					return
 				},
 				Scan: func(row *model.Authorization) any {
-					return scanContactId(&row.Contact) // NOT NULL
+					// return scanContactId(&row.Contact) // NOT NULL
+					// return (*ContactId)(row.Contact)
+					return (**ContactId)(unsafe.Pointer(&row.Contact))
 				},
 			},
 			"metadata": {
@@ -400,4 +405,23 @@ func init() {
 		},
 		Keys: []graphql.Query{},
 	}
+}
+
+// Register .well-known composite data types ..
+func RegisterDataTypes(ctx context.Context, conn *pgx.Conn) error {
+
+	// https://github.com/jackc/pgx/discussions/2181
+
+  for _, typeName := range []string{
+		"im_account.refcontact", // composite
+		"im_account._refcontact", // arraytype
+	} {
+    dataType, err := conn.LoadType(ctx, typeName)
+    if err != nil {
+      return err
+    }
+    conn.TypeMap().RegisterType(dataType)
+  }
+
+  return nil
 }
