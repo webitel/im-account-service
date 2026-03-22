@@ -48,7 +48,7 @@ type RegisterDeviceRequest struct {
 	// Context
 	context.Context
 	// end-User (Contact) Authorization
-	model.Authorization
+	*model.Authorization
 	// Device token subscription
 	Token *model.PushToken
 	// List of end-User (Contact) identifiers
@@ -63,8 +63,12 @@ type RegisterDeviceRequest struct {
 type UnregisterDeviceRequest struct {
 	// Context
 	context.Context
-	// Session.(Authorization).Id
-	SessionId string
+	
+	// // Session.(Authorization).Id
+	// SessionId string
+
+	// Authorization of Device session
+	*model.Authorization
 	// Device (current) token subscription
 	// .. to prove that session.Device knows [PUSH] token to be unsubscribed
 	Token *model.PushToken

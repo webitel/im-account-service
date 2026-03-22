@@ -2,7 +2,7 @@ module github.com/webitel/im-account-service
 
 go 1.25.5
 
-// indirect github.com/webitel/protos[@feat/messaging] v1.0.1-0.20260303131531-128e7937ccef
+// indirect github.com/webitel/protos github.com/webitel/protos v1.0.1-0.20260322151610-5484a498eda1
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1
@@ -27,6 +27,8 @@ require (
 	go.opentelemetry.io/otel/sdk v1.39.0
 	go.opentelemetry.io/otel/trace v1.39.0
 	go.uber.org/fx v1.24.0
+	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9
+	golang.org/x/time v0.15.0
 	google.golang.org/grpc v1.77.0
 )
 
@@ -86,7 +88,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.39.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251022142026-3a174f9686a8 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect

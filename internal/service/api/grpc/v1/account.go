@@ -17,6 +17,7 @@ import (
 	"github.com/webitel/im-account-service/internal/store"
 	adminpb "github.com/webitel/im-account-service/proto/gen/im/service/admin/v1"
 	v1 "github.com/webitel/im-account-service/proto/gen/im/service/auth/v1"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -199,6 +200,15 @@ func (api *AccountService) Logout(ctx context.Context, req *v1.LogoutRequest) (*
 		// something went wrong
 		return nil, err
 	}
+
+	session := rpc.Session
+	if session != nil && session.Id != "" && session.Device.Push.GetToken() != nil {
+		_ = api.Service.PublishUpdate(
+			&service.UpdateDeviceLogout{
+				Authorization: authorizationFormProtoV1(session),
+			},
+		)
+	}
 	// [ OK ]
 	return &v1.LogoutResponse{}, nil
 	// return api.UnimplementedAccountServer.Logout(ctx, req)
@@ -243,7 +253,7 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 
 	// region: Request Validation
 	var ok bool
-	switch regtoken := req.Push.Token.(type) {
+	switch regtoken := req.GetPush().GetToken().(type) {
 	case *v1.PUSHSubscription_Fcm:
 		ok = (regtoken.Fcm != "")
 	case *v1.PUSHSubscription_Apn:
@@ -294,15 +304,15 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 	// 	return nil, handler.ErrAccountUnauthorized
 	// }
 
-	var service *adminpb.PUSHServiceClient
+	var pushClient *adminpb.PUSHServiceClient
 	if app := rpc.App; app != nil {
-		service = app.Proto().GetService().GetPushService()
+		pushClient = app.Proto().GetService().GetPushService()
 	} // else { .. Webitel end-User authorization .. }
 
 	switch req.Push.Token.(type) {
 	case *v1.PUSHSubscription_Fcm:
 		{
-			if service.GetFcm() == nil {
+			if pushClient.GetFcm() == nil {
 				// no client configuration == no support
 				return nil, errors.BadRequest(
 					errors.Status("NO_FCMS_SERVICE"),
@@ -312,7 +322,7 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 		}
 	case *v1.PUSHSubscription_Apn:
 		{
-			if service.GetApn() == nil {
+			if pushClient.GetApn() == nil {
 				// no client configuration == no support
 				return nil, errors.BadRequest(
 					errors.Status("NO_APNS_SERVICE"),
@@ -327,20 +337,38 @@ func (api *AccountService) RegisterDevice(ctx context.Context, req *v1.RegisterD
 	default:
 	}
 
-	// PERFORM: register for current session
-	repo := api.Service.Options().Sessions
-	err = repo.RegisterDevice(store.RegisterDeviceRequest{
-		Context:       rpc.Context,
-		Authorization: *rpc.Session,
-		OtherUids:     nil,
+	// // PERFORM: register for current session
+	// repo := api.Service.Options().Sessions
+	// err = repo.RegisterDevice(store.RegisterDeviceRequest{
+	// 	Token:         req.Push,
+	// 	Context:       rpc.Context,
+	// 	Authorization: rpc.Session,
+	// 	OtherUids:     nil,
+	// })
+
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// // session.(Authorization).PUSH changed ; reload on demand ...
+	// _ = api.Service.DelCache(rpc.Session)
+
+	_, err = api.Service.RegisterDevice(store.RegisterDeviceRequest{
 		Token:         req.Push,
+		Context:       rpc.Context,
+		Authorization: rpc.Session,
+		OtherUids:     nil,
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	// session.(Authorization).PUSH changed ; reload on demand ...
-	_ = api.Service.DelCache(rpc.Session)
+
+	_ = api.Service.PublishUpdate(
+		&service.UpdateDeviceRegister{
+			Authorization: authorizationFormProtoV1(rpc.Session),
+		},
+	)
+
 	return &v1.RegisterDeviceResponse{}, nil
 	// return api.UnimplementedAccountServer.RegisterDevice(ctx, req)
 }
@@ -351,7 +379,7 @@ func (api *AccountService) UnregisterDevice(ctx context.Context, req *v1.Unregis
 	// region: Request Validation
 	var ok bool
 	// REQUIRE: current PUSH token to deregister
-	switch regtoken := req.Push.Token.(type) {
+	switch regtoken := req.GetPush().GetToken().(type) {
 	case *v1.PUSHSubscription_Fcm:
 		ok = (regtoken.Fcm != "")
 	case *v1.PUSHSubscription_Apn:
@@ -423,21 +451,48 @@ func (api *AccountService) UnregisterDevice(ctx context.Context, req *v1.Unregis
 	// default:
 	// }
 
-	// PERFORM: deregister for current session
-	repo := api.Service.Options().Sessions
-	err = repo.UnregisterDevice(store.UnregisterDeviceRequest{
-		Context:   rpc.Context,
-		SessionId: rpc.Session.Id,
-		OtherUids: nil,
-		Token:     req.Push,
+	// // PERFORM: deregister for current session
+	// repo := api.Service.Options().Sessions
+	// err = repo.UnregisterDevice(store.UnregisterDeviceRequest{
+	// 	Token:     req.Push,
+	// 	Context:   rpc.Context,
+	// 	OtherUids: nil,
+	// 	// SessionId: rpc.Session.Id,
+	// 	Authorization: rpc.Session,
+	// })
+
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// Client (Device) need to know its latest token registration !
+	if !proto.Equal(req.Push, rpc.Session.Device.Push) {
+		return nil, errors.BadRequest(
+			errors.Status("BAD_TOKEN"),
+			errors.Message("unregister: invalid PUSH token"),
+		)
+	}
+
+	// // session.(Authorization).PUSH changed ; reload on demand ...
+	// _ = api.Service.DelCache(rpc.Session)
+
+	_, err = api.Service.UnregisterDevice(store.UnregisterDeviceRequest{
+		Token:         req.Push,
+		Context:       rpc.Context,
+		OtherUids:     nil,
+		Authorization: rpc.Session,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	// session.(Authorization).PUSH changed ; reload on demand ...
-	_ = api.Service.DelCache(rpc.Session)
+	_ = api.Service.PublishUpdate(
+		&service.UpdateDeviceUnregister{
+			Authorization: authorizationFormProtoV1(rpc.Session),
+		},
+	)
+
 	return &v1.UnregisterDeviceResponse{}, nil
 	// return api.UnimplementedAccountServer.UnregisterDevice(ctx, req)
 }

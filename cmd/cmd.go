@@ -4,10 +4,11 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
+	"github.com/webitel/im-account-service/internal/service"
 )
 
 const (
-	ServiceName      = "im-account-service"
+	ServiceName      = service.ServiceName
 	ServiceNamespace = "webitel"
 )
 

@@ -352,10 +352,17 @@ func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecy
 	driver := strings.ToLower(pubsubConfig.Driver)
 	switch driver {
 	case "amqp", "rabbitmq":
-		pubsubFactory, err = amqp.NewFactory(pubsubConfig.URL, loggerAdapter)
+		var broker *amqp.Factory
+		broker, err = amqp.NewFactory(
+			pubsubConfig.URL,  // connectionString
+			loggerAdapter,     // logger
+		)
 		if err != nil {
 			return nil, err
 		}
+		broker.ServiceId = config.Service.Id
+		broker.ServiceName = ServiceName
+		pubsubFactory = broker
 	default:
 		return nil, fmt.Errorf("broker [%s] not supported", driver)
 	}

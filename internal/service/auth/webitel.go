@@ -178,6 +178,15 @@ func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 		if app != nil {
 			session.AppId = app.ClientId() // UUID
 		}
+	} else {
+		// [FROM]: latest Device info
+		session.Device = model.Device{
+			Id:   cmp.Or(rpc.Device.Id, session.Device.Id),
+			App:  rpc.Device.App,      // latest
+			Addr: rpc.Device.Addr,     // latest
+			From: session.Device.From, // storage
+			Push: session.Device.Push, // storage
+		}
 	}
 
 	// Webitel (session) Authorization prepared
