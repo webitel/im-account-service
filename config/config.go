@@ -155,8 +155,8 @@ func defineFlags() {
 	pflag.String("pubsub.broker_driver", "", "PubSub broker driver")
 
 	pflag.String("profiler.addr", "", "Profiler address")
-	pflag.String("profiler.mutex_profile_fraction", "", "Profiler mutex profile fraction")
-	pflag.String("profiler.block_profile_rate", "", "Profiler block profile rate")
+	pflag.Int("profiler.mutex_profile_fraction", 1, "Profiler mutex profile fraction")
+	pflag.Int("profiler.block_profile_rate", 1, "Profiler block profile rate")
 }
 
 func (c *Config) validate() error {
