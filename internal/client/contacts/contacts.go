@@ -35,6 +35,3 @@ func (c *ContactsClient) DeleteContact(ctx context.Context, in *impb.DeleteConta
 	return c.ContactsClient.DeleteContact(ctx, in, opts...)
 }
 
-func (c *ContactsClient) CanSend(ctx context.Context, in *impb.CanSendRequest, opts ...grpc.CallOption) (*impb.CanSendResponse, error) {
-	return c.ContactsClient.CanSend(ctx, in, opts...)
-}

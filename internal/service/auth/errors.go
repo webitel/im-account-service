@@ -11,7 +11,7 @@ var (
 
 	// ErrDeviceAuthorization = errors.Unauthorized(
 	// 	errors.Status("UNAUTHORIZED_CLIENT"),
-	// 	errors.Message("messaging: invalid device authorization"),
+	// 	errors.Message("messaging: invalid device credentials"),
 	// )
 
 	ErrDeviceUnauthorized = errors.Unauthorized(
@@ -26,12 +26,12 @@ var (
 
 	ErrClientAmbiguous = errors.Unauthorized(
 		errors.Status("UNAUTHORIZED_CLIENT"),
-		errors.Message("messaging: ambiguous client authorization"),
+		errors.Message("messaging: ambiguous client credentials"),
 	)
 
 	ErrClientUnauthorized = errors.Unauthorized(
 		errors.Status("UNAUTHORIZED_CLIENT"),
-		errors.Message("messaging: invalid client authorization"),
+		errors.Message("messaging: invalid client credentials"),
 	)
 
 	ErrAccountUnauthorized = errors.Unauthorized(

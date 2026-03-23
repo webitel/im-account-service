@@ -2,7 +2,7 @@ module github.com/webitel/im-account-service
 
 go 1.25.5
 
-// indirect github.com/webitel/protos[@feat/messaging] v1.0.1-0.20260303131531-128e7937ccef
+// indirect github.com/webitel/protos github.com/webitel/protos v1.0.1-0.20260322151610-5484a498eda1
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1
@@ -30,6 +30,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9
+	golang.org/x/time v0.15.0
 	google.golang.org/grpc v1.77.0
 )
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -271,6 +272,16 @@ func (c *SessionStore) Search(req store.ListSessionRequest) (*model.SessionList,
 			// },
 		},
 		Calc: []pgtypex.DataCalcFunc[model.Authorization]{
+			// [populate]: row.Device.IP == row.IP
+			func(row *model.Authorization) (_ error) {
+				if len(row.IP) > 0 && row.Device.Addr == nil {
+					row.Device.Addr = &net.IPAddr{
+						IP:   row.IP,
+						Zone: "",
+					}
+				}
+				return
+			},
 			// [parse]: row.Device.App.(UserAgent).String
 			func(row *model.Authorization) (_ error) {
 				if row.Device.App.String != "" {
@@ -655,7 +666,7 @@ func (c *SessionStore) RegisterDevice(req store.RegisterDeviceRequest) error {
 		return err
 	}
 
-	session := &req.Authorization
+	session := req.Authorization
 	// var (
 	// 	createId string
 	// 	updateId = session.Id
@@ -710,7 +721,7 @@ func (c *SessionStore) RegisterDevice(req store.RegisterDeviceRequest) error {
 		-- , @metadata
 		, @created_at
 		WHERE @id ISNULL
-		ON CONFLICT (device_id, contact_id)
+		ON CONFLICT (device_id, ((contact_id).id))
 		DO NOTHING -- No @session_id is given -but- such ( device + contact ) exists ; hacking ?
 		-- DO UPDATE SET --
 		RETURNING id -- generated
@@ -760,11 +771,27 @@ func (c *SessionStore) RegisterDevice(req store.RegisterDeviceRequest) error {
 	// 	return pgx.ErrNoRows
 	// }
 
+	// Apply changes ..
+	session.Device.Push = req.Token
+
 	// [ OK ]
 	return nil
 }
 
 func (c *SessionStore) UnregisterDevice(req store.UnregisterDeviceRequest) error {
+
+	session := req.Authorization
+	if session == nil {
+		// Authorization (session) required
+		return nil
+	}
+
+	var sessionId pgtype.UUID
+	_ = sessionId.Scan(req.Authorization.Id)
+	if !sessionId.Valid {
+		// Invalid Authorization (session) identifier
+		return nil
+	}
 
 	jsonbCodec := &protojsonCodec
 	jsonbToken, err := jsonbCodec.Marshal(req.Token)
@@ -790,7 +817,7 @@ func (c *SessionStore) UnregisterDevice(req store.UnregisterDeviceRequest) error
 	  (SELECT NULLIF(push_token, @push_token) ISNULL FROM auth)
 	-- , (SELECT count(*) FROM done)
 	`, pgx.NamedArgs{
-		"session_id": req.SessionId,                   // UUID
+		"session_id": sessionId,                   // UUID
 		"push_token": json.RawMessage(jsonbToken), // protojson.Marshal
 	}
 
@@ -818,6 +845,9 @@ func (c *SessionStore) UnregisterDevice(req store.UnregisterDeviceRequest) error
 			errors.Message("device: invalid PUSH token"),
 		)
 	}
+
+	// [NOTE]: Need for publishing as a token data that was deregistered !
+	// session.Device.Push = nil
 
 	// [ OK ]
 	return nil

@@ -29,10 +29,11 @@ type QueueConfig struct {
 }
 
 type SubscriberConfig struct {
-	Exchange          ExchangeConfig
-	Queue             string
-	ExclusiveConsumer bool
-	RoutingKey        string
+	Exchange     ExchangeConfig
+	Queue        string
+	QueueDurable bool
+	Exclusive    bool
+	BindingKey   string
 }
 
 type PublisherConfig struct {

@@ -96,3 +96,59 @@ var TokenGen = model.GenerateOptions{
 		model.TokenNoRefresh(),
 	},
 }
+
+func (c *Manager) RegisterDevice(req store.RegisterDeviceRequest) (*model.Authorization, error) {
+	// for session Authorization
+	session := req.Authorization
+	// PERFORM: register for current session
+	storage := c.Options().Sessions
+	err := storage.RegisterDevice(req)
+
+	if err != nil {
+		return nil, err
+	}
+	// session.(Authorization).PUSH changed ; reload on demand ...
+	_ = c.DelCache(session)
+	
+	// // publish UpdateNewDevice occured ..
+	// updates, err := c.Updates()
+	// if err != nil {
+	// 	// Failed to publish UpdateNewDevice
+	// 	return session, nil
+	// }
+
+	// changes := UpdateDevice{
+	// 	Authorization: req.Authorization,
+	// }
+
+	// err = updates.PublishUpdateDevice(
+	// 	req.Context, changes,
+	// )
+	
+	// if err != nil {
+	// 	c.Warn(req.Context, "Failed to publish UpdateDevice", "err", err)
+	// }
+
+	return session, nil
+}
+
+func (c *Manager) UnregisterDevice(req store.UnregisterDeviceRequest) (*model.Authorization, error) {
+	// for session Authorization
+	session := req.Authorization
+	// PERFORM: register for current session
+	storage := c.Options().Sessions
+	err := storage.UnregisterDevice(req)
+
+	if err != nil {
+		return nil, err
+	}
+	// session.(Authorization).PUSH changed ; reload on demand ...
+	_ = c.DelCache(session)
+
+	// _ = c.PublishUpdate(&UpdateDeviceUnregister{
+	// 	Authorization: authorizationFormProtoV1(session),
+	// })
+	// // [ OK ] ; sanitize ..
+	// session.Device.Push = nil
+	return session, nil
+}

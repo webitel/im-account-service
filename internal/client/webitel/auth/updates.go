@@ -20,9 +20,10 @@ func (c *Client) Subscribe(broker pubsub.Provider) error {
 				Type:    "topic",
 				Durable: true, // exchange durable(!)
 			},
-			Queue:             "todo_exclusive_queue_for_account_service_node_id",
-			RoutingKey:        "invalidate.#",
-			ExclusiveConsumer: false, // true, !!!
+			Queue:        "", // "todo_exclusive_queue_for_account_service_node_id",
+			QueueDurable: false,
+			BindingKey:   "invalidate.#",
+			Exclusive:    true,
 		},
 	)
 
@@ -33,7 +34,7 @@ func (c *Client) Subscribe(broker pubsub.Provider) error {
 	_ = broker.GetRouter().AddHandler(
 		"webitel",
 		// subscriber
-		"#", sub,
+		"invalidate.#", sub,
 		// publisher
 		"", nil,
 		// handler
