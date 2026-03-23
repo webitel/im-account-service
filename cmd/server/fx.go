@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/webitel/im-account-service/infra/tls"
+	"github.com/webitel/webitel-go-kit/infra/profiler"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
@@ -24,12 +25,12 @@ import (
 
 func NewApp(cfg *config.Config) *fx.App {
 	return fx.New(
-		fx.Invoke(func ()  {
+		fx.Invoke(func() {
 			// HTTP Client trafic DUMP !
 			if logx.Debug("http", "https") {
 				http.DefaultTransport = httpx.TransportDump{
 					Transport: http.DefaultTransport,
-					WithBody: true,
+					WithBody:  true,
 				}
 			}
 		}),
@@ -39,6 +40,7 @@ func NewApp(cfg *config.Config) *fx.App {
 			cmd.ProvideSD,
 			cmd.ProvidePubSub,
 			cmd.ProvideDB,
+			cmd.ProvideProfiler,
 		),
 		fx.WithLogger(func(stdlog *slog.Logger) fxevent.Logger {
 			const debugLog = slog.LevelDebug
@@ -58,5 +60,6 @@ func NewApp(cfg *config.Config) *fx.App {
 		grpcsrv.Module,
 		service.Module,
 		apiV1.Module,
+		profiler.Module,
 	)
 }

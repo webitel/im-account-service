@@ -12,6 +12,8 @@ import (
 	"time"
 
 	sfmt "github.com/samber/slog-formatter"
+	"github.com/webitel/webitel-go-kit/infra/profiler"
+	"github.com/webitel/webitel-go-kit/pkg/logger"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -103,7 +105,7 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 			context.Background(),
 			otelsdk.WithResource(service),
 			otelsdk.WithLogBridge(func() {
-					handlers = append(handlers, otelHandler)
+				handlers = append(handlers, otelHandler)
 			}),
 		)
 		if err != nil {
@@ -234,7 +236,7 @@ func (h *multiHandler) WithGroup(name string) slog.Handler {
 }
 
 func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_tls.Config, lc fx.Lifecycle) (*grpc_srv.Server, error) {
-	
+
 	var ssl *tls.Config
 	if creds != nil {
 		ssl = creds.Server
@@ -327,7 +329,6 @@ func ProvideSD(cfg *config.Config, log *slog.Logger, srv *grpc_srv.Server, lc fx
 }
 
 func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle) (pubsub.Provider, error) {
-
 	var (
 		err           error
 		pubsubConfig  = config.Pubsub
@@ -422,4 +423,12 @@ func ProvideDB(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle)
 	})
 
 	return dbo, err
+}
+
+func ProvideProfiler(config *config.Config, log *slog.Logger) (profiler.Config, logger.Logger) {
+	return profiler.Config{
+		Addr:                 config.Profiler.Addr,
+		MutexProfileFraction: config.Profiler.MutexProfileFraction,
+		BlockProfileRate:     config.Profiler.BlockProfileRate,
+	}, logger.NewSlog(log)
 }

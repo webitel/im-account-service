@@ -292,6 +292,10 @@ github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260202123728-94059b0e
 github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260202123728-94059b0e19be/go.mod h1:IhUZHd7EYD1pCoX9dNNlkpF+/c3Q6ODgBcluGDMbJrU=
 github.com/webitel/webitel-go-kit/infra/otel v0.0.0-20251219114945-08628fe6d5da h1:5jwcqAeHMO4vmM2p3EZUzaLxB+94J5hJP8MDESc32bE=
 github.com/webitel/webitel-go-kit/infra/otel v0.0.0-20251219114945-08628fe6d5da/go.mod h1:tbGmdVdDdUbfsI2wpOoMj7dlmgwaKQFmIoAbaWPS7j4=
+github.com/webitel/webitel-go-kit/infra/profiler v0.0.0-20260323001146-8a6a55d94da8 h1:2AzDIVwfGCFxyUu7FfcTGdletY7tlCGO6GAqw+266Lk=
+github.com/webitel/webitel-go-kit/infra/profiler v0.0.0-20260323001146-8a6a55d94da8/go.mod h1:9DpU5TYX/zupd0f4UhV1iCkB50m2F7ArErbdXDOvW5o=
+github.com/webitel/webitel-go-kit/pkg/logger v0.0.0-20260320143753-3eb058ef0682 h1:UzoSHEd7kkTjn9r1b85e/UIGsme23nesFjT3+TPoCd8=
+github.com/webitel/webitel-go-kit/pkg/logger v0.0.0-20260320143753-3eb058ef0682/go.mod h1:a97/UloRwOBgFqt2rSTztIcFDmBWvXDQEySvmUO7YLg=
 github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7 h1:Qi/ustGBfh13I6aZ/ljul679SPJmHbZzFn9h43eloLg=
 github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7/go.mod h1:mXyM8hL9tEBLM4K+Uw8QLuGLo6/eX+5Lvv1ks2Y4us8=
 github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 h1:FnBeRrxr7OU4VvAzt5X7s6266i6cSVkkFPS0TuXWbIg=
