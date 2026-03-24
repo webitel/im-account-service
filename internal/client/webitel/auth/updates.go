@@ -20,7 +20,7 @@ func (c *Client) Subscribe(broker pubsub.Provider) error {
 				Type:    "topic",
 				Durable: true, // exchange durable(!)
 			},
-			Queue:        "", // "todo_exclusive_queue_for_account_service_node_id",
+			Queue:        ".go-webitel-client",
 			QueueDurable: false,
 			BindingKey:   "invalidate.#",
 			Exclusive:    true,

@@ -1,14 +1,13 @@
 package amqp
 
 import (
-	"cmp"
 	"fmt"
-	"time"
+	"math/rand"
+	"strings"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-amqp/v3/pkg/amqp"
 	"github.com/ThreeDotsLabs/watermill/message"
-	amqp091 "github.com/rabbitmq/amqp091-go"
 	"github.com/webitel/im-account-service/infra/pubsub/factory"
 )
 
@@ -41,8 +40,18 @@ func (f *Factory) BuildSubscriber(name string, subConfig *factory.SubscriberConf
 		Connection: amqp.ConnectionConfig{
 			AmqpURI: f.DataSourceName,
 		},
+		// Marshaler: Marshaler{},
 		// Marshaler: amqp.DefaultMarshaler{},
-		Marshaler: Marshaler{},
+		Marshaler: &Marshaler{
+			Base: amqp.CorrelatingMarshaler{
+				// PostprocessPublishing: func(amqp091.Publishing) amqp091.Publishing {
+				// 	panic("TODO")
+				// },
+				NotPersistentDeliveryMode: true,
+			},
+			Service:   f.ServiceName,
+			ServiceId: f.ServiceId,
+		},
 		Exchange: amqp.ExchangeConfig{
 			GenerateName: func(s string) string {
 				return subConfig.Exchange.Name
@@ -53,9 +62,23 @@ func (f *Factory) BuildSubscriber(name string, subConfig *factory.SubscriberConf
 		Queue: amqp.QueueConfig{
 			GenerateName: func(topic string) string {
 				_ = topic
-				return cmp.Or(subConfig.Queue, f.ServiceId)
+				// return cmp.Or(subConfig.Queue, f.ServiceId)
+				queueName := subConfig.Queue
+				const sep = "." 
+				// internal queue-name MAY start with DOT(".")
+				// make it UNIQUE & prefix with assigned service.(node).id
+				switch queueName {
+				case "", sep:
+					queueName = (f.ServiceId + sep + generateRandomName(8, charset))
+				}
+				if strings.HasPrefix(queueName, sep) {
+					queueName = (f.ServiceId + queueName)
+				}
+				return queueName // UNIQUE
 			},
 			Durable: subConfig.QueueDurable,
+			AutoDelete: !subConfig.QueueDurable,
+			Exclusive: !subConfig.QueueDurable,
 		},
 		QueueBind: amqp.QueueBindConfig{
 			GenerateRoutingKey: func(subscribeTopic string) string {
@@ -64,8 +87,9 @@ func (f *Factory) BuildSubscriber(name string, subConfig *factory.SubscriberConf
 			},
 		},
 		Consume: amqp.ConsumeConfig{
-			Consumer:  name,
+			NoRequeueOnNack: true, // FIXME
 			Exclusive: subConfig.Exclusive,
+			Consumer:  name,
 		},
 		TopologyBuilder: &amqp.DefaultTopologyBuilder{},
 	}
@@ -77,30 +101,17 @@ func (f *Factory) BuildPublisher(pubConfig *factory.PublisherConfig) (message.Pu
 		Connection: amqp.ConnectionConfig{
 			AmqpURI: f.DataSourceName,
 		},
-		// Marshaler: amqp.DefaultMarshaler{},
-		Marshaler: amqp.CorrelatingMarshaler{
-			PostprocessPublishing: func(post amqp091.Publishing) amqp091.Publishing {
-
-				if post.Timestamp.IsZero() {
-					post.Timestamp = time.Now().UTC()
-				}
-
-				post.Headers["from-service"] = f.ServiceName
-				post.Headers["from-service-id"] = f.ServiceId
-
-				// post.UserId = f.app // service.(node).id
-				// post.AppId = "im-account-service" // service.(name)
-
-				post.Type, _ = post.Headers["x-proto-type"].(string)
-				post.ContentType, _ = post.Headers["content-type"].(string)
-
-				delete(post.Headers, "x-proto-type")
-				delete(post.Headers, "content-type")
-
-				return post
+		Marshaler: &Marshaler{
+			Base: amqp.CorrelatingMarshaler{
+				// PostprocessPublishing: func(amqp091.Publishing) amqp091.Publishing {
+				// 	panic("TODO")
+				// },
+				NotPersistentDeliveryMode: true,
 			},
-			NotPersistentDeliveryMode: true,
+			Service:   f.ServiceName,
+			ServiceId: f.ServiceId,
 		},
+		// Marshaler: amqp.DefaultMarshaler{},
 		Exchange: amqp.ExchangeConfig{
 			GenerateName: func(_ string) string { // (topic string) string
 				return pubConfig.Exchange.Name // static
@@ -116,4 +127,21 @@ func (f *Factory) BuildPublisher(pubConfig *factory.PublisherConfig) (message.Pu
 		TopologyBuilder: &amqp.DefaultTopologyBuilder{},
 	}
 	return amqp.NewPublisher(conf, f.Logger)
+}
+
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func generateRandomName(length int, charset string) string {
+	// Seed the generator (Go 1.20+ automatically seeds the default source, 
+	// but explicit seeding is shown for clarity and compatibility)
+	// For modern Go, you can often omit the rand.Seed() line if using the
+	// default, package-level rand functions.
+	// var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano())) // Pre-Go 1.20 method
+
+	sb := strings.Builder{}
+	sb.Grow(length)
+	for range length {
+		sb.WriteByte(charset[rand.Intn(len(charset))])
+	}
+	return sb.String()
 }

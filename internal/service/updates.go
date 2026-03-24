@@ -103,8 +103,8 @@ func (c *UpdatesManager) PublishUpdate(args updates.Update) error {
 	update := message.Message{
 		UUID:     watermill.NewULID(),
 		Metadata: message.Metadata{
-			"x-proto-type": string(args.ProtoReflect().Descriptor().FullName()),
-			"content-type": codec.String(), // charset-utf-8
+			updates.ContentTypeHeader: codec.String(), // charset-utf-8
+			updates.MessageTypeHeader: string(args.ProtoReflect().Descriptor().FullName()),
 		},
 		Payload: message.Payload(data),
 	}
@@ -133,7 +133,7 @@ func (c *Manager) subscribeOnClusterUpdates() error {
 				Type:    "topic",
 				Durable: true, // exchange durable(!)
 			},
-			Queue:        "im-account-cluster-updates",
+			Queue:        ".im-account-cluster", // ".cluster.updates",
 			QueueDurable: false,
 			BindingKey:   "updates.#", // updates.device.#
 			Exclusive:    false, // consumes from cluster node(s) ..
@@ -161,7 +161,20 @@ func (c *Manager) onClusterUpdate(recv *message.Message) (_ error) {
 	// if fromId == c.opts.Id {
 	// 	// SELF Publication ; skip ..
 	// }
-	typeAs := recv.Metadata["x-proto-type"]
+
+	if updates.IsSelfUpdate(recv) {
+		// Indicates that WE published this recv.(*Message) from code around !
+		// Just SKIP the processing, because the fact that we got it says
+		// that we generated it based on certain changes that have already occurred.
+		c.Debug(recv.Context(),
+			"[ im-account-service ] SELF published Update, skip ..",
+			// "exchange", recv.Metadata[".exchange"],
+			"topic", recv.Metadata[".topic"],
+		)
+		return // nil
+	}
+
+	typeAs := recv.Metadata[updates.MessageTypeHeader]
 	typeOf, err := protoregistry.GlobalTypes.FindMessageByName(
 		protoreflect.FullName(typeAs),
 	)
@@ -169,7 +182,7 @@ func (c *Manager) onClusterUpdate(recv *message.Message) (_ error) {
 		// protoregistry.NotFound
 		return
 	}
-	// mimetype := recv.Metadata["content-type"]
+	// mimetype := recv.Metadata[updates.ContentTypeHeader]
 	// codec := updates.GetCodec(mimetype)
 	codec := updates.DefaultCodec
 	data := typeOf.New().Interface()
