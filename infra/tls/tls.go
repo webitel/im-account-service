@@ -24,7 +24,8 @@ func ProvideTLSConfig(cfg *config.Config) (*Config, error) {
 	var (
 		connConfig = cfg.Service.Connection
 		conf       = &Config{}
-		authType   = tls.RequireAndVerifyClientCert
+	//authType   = tls.RequireAndVerifyClientCert
+		authType   = tls.VerifyClientCertIfGiven
 		err        error
 	)
 
