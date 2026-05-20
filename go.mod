@@ -30,7 +30,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9
-	golang.org/x/time v0.15.0
 	google.golang.org/grpc v1.77.0
 )
 
