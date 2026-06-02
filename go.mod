@@ -19,7 +19,7 @@ require (
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/samber/slog-formatter v1.2.2
 	github.com/spf13/pflag v1.0.10
-	github.com/spf13/viper v1.21.0
+	github.com/spf13/viper v1.21.0 // indirect
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/webitel/webitel-go-kit/infra/otel v0.0.0-20251219114945-08628fe6d5da
 	github.com/webitel/webitel-go-kit/infra/profiler v0.0.0-20260323001146-8a6a55d94da8
@@ -124,3 +124,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2
 	google.golang.org/protobuf v1.36.11
 )
+
+require github.com/webitel/webitel-go-kit/appconfig v0.0.0-20260602123706-4e69c07a5ba7
