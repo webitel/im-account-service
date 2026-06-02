@@ -8,6 +8,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/webitel/im-account-service/config"
+	"github.com/webitel/webitel-go-kit/appconfig"
 )
 
 var Module = fx.Module("tls",
@@ -51,7 +52,7 @@ func ProvideTLSConfig(cfg *config.Config) (*Config, error) {
 	return conf, nil
 }
 
-func Load(connConfig config.TLSConfig, authType tls.ClientAuthType) (*tls.Config, error) {
+func Load(connConfig appconfig.TLS, authType tls.ClientAuthType) (*tls.Config, error) {
 	if connConfig.Cert == "" || connConfig.Key == "" {
 		return nil, nil
 	}

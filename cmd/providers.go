@@ -96,7 +96,7 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 		service := resource.NewSchemaless(
 			semconv.ServiceName(ServiceName),
 			semconv.ServiceVersion(version),
-			semconv.ServiceInstanceID(cfg.Service.Id),
+			semconv.ServiceInstanceID(cfg.Service.ID),
 			semconv.ServiceNamespace(ServiceNamespace),
 		)
 		otelHandler := otelslog.NewHandler("slog")
@@ -242,7 +242,7 @@ func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_
 		ssl = creds.Server
 	}
 
-	s, err := grpc_srv.New(config.Service.Address, logger, ssl)
+	s, err := grpc_srv.New(config.Service.Addr, logger, ssl)
 	if err != nil {
 		return nil, err
 	}
@@ -262,12 +262,12 @@ func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_
 
 //
 //func ProvideCluster(cfg *config.Config, srv *grpc_srv.Server, l *slog.Logger, lc fx.Lifecycle) (*consul.Cluster, error) {
-//	c := consul.NewCluster(model.ServiceName, cfg.Consul.Address, l)
+//	c := consul.NewCluster(model.ServiceName, cfg.Consul.Addr, l)
 //	host := srv.Host()
 //
 //	lc.Append(fx.Hook{
 //		OnStart: func(ctx context.Context) error {
-//			return c.Start(cfg.Service.Id, host, srv.Port())
+//			return c.Start(cfg.Service.ID, host, srv.Port())
 //		},
 //		OnStop: func(ctx context.Context) error {
 //			c.Stop()
@@ -282,7 +282,7 @@ func ProvideSD(cfg *config.Config, log *slog.Logger, srv *grpc_srv.Server, lc fx
 	provider, err := discovery.DefaultFactory.CreateProvider(
 		discovery.ProviderConsul,
 		log,
-		cfg.Consul.Address,
+		cfg.Consul.Addr,
 		discovery.WithHeartbeat[discovery.DiscoveryProvider](true),
 		discovery.WithTimeout[discovery.DiscoveryProvider](time.Second*30),
 	)
@@ -293,7 +293,7 @@ func ProvideSD(cfg *config.Config, log *slog.Logger, srv *grpc_srv.Server, lc fx
 
 	var si = new(discovery.ServiceInstance)
 	{
-		si.Id = cfg.Service.Id
+		si.Id = cfg.Service.ID
 		si.Name = ServiceName
 		si.Version = version
 		si.Metadata = map[string]string{
@@ -361,7 +361,7 @@ func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecy
 		if err != nil {
 			return nil, err
 		}
-		broker.ServiceId = config.Service.Id
+		broker.ServiceId = config.Service.ID
 		broker.ServiceName = ServiceName
 		pubsubFactory = broker
 	default:
@@ -399,7 +399,7 @@ func ProvideDB(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle)
 	dbo, err := postgres.New(
 		postgres.Logger(logger),
 		postgres.ConnOptions(
-			postgres.FallbackApplicationName(config.Service.Id),
+			postgres.FallbackApplicationName(config.Service.ID),
 		),
 		postgres.DataSourceName(config.Postgres.DSN),
 	)
@@ -428,7 +428,7 @@ func ProvideDB(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle)
 func ProvideProfiler(config *config.Config, log *slog.Logger) (profiler.Config, logger.Logger) {
 	return profiler.Config{
 		Addr:                 config.Profiler.Addr,
-		MutexProfileFraction: config.Profiler.MutexProfileFraction,
-		BlockProfileRate:     config.Profiler.BlockProfileRate,
+		MutexProfileFraction: config.Profiler.MutexFraction,
+		BlockProfileRate:     config.Profiler.BlockRate,
 	}, logger.NewSlog(log)
 }

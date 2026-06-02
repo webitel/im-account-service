@@ -31,7 +31,7 @@ var Module = fx.Module(
 				creds = ssl.Server
 			}
 
-			srv, err := New(config.Service.Address, logger, creds)
+			srv, err := New(config.Service.Addr, logger, creds)
 			if err != nil {
 				return nil, err
 			}
