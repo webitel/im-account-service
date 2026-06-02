@@ -110,7 +110,7 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260202123728-94059b0e19be
+	github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260602143553-df89d5e34680
 	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7
 	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.64.0
@@ -125,4 +125,4 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require github.com/webitel/webitel-go-kit/appconfig v0.0.0-20260602123706-4e69c07a5ba7
+require github.com/webitel/webitel-go-kit/appconfig v0.0.0-20260602143553-df89d5e34680

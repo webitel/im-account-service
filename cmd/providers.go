@@ -96,7 +96,7 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 		service := resource.NewSchemaless(
 			semconv.ServiceName(ServiceName),
 			semconv.ServiceVersion(version),
-			semconv.ServiceInstanceID(cfg.Service.ID),
+			semconv.ServiceInstanceID(discovery.GenerateInstanceID(ServiceName)),
 			semconv.ServiceNamespace(ServiceNamespace),
 		)
 		otelHandler := otelslog.NewHandler("slog")
@@ -267,7 +267,7 @@ func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_
 //
 //	lc.Append(fx.Hook{
 //		OnStart: func(ctx context.Context) error {
-//			return c.Start(cfg.Service.ID, host, srv.Port())
+//			return c.Start(discovery.GenerateInstanceID(ServiceName), host, srv.Port())
 //		},
 //		OnStop: func(ctx context.Context) error {
 //			c.Stop()
@@ -293,7 +293,7 @@ func ProvideSD(cfg *config.Config, log *slog.Logger, srv *grpc_srv.Server, lc fx
 
 	var si = new(discovery.ServiceInstance)
 	{
-		si.Id = cfg.Service.ID
+		si.Id = discovery.GenerateInstanceID(ServiceName)
 		si.Name = ServiceName
 		si.Version = version
 		si.Metadata = map[string]string{
@@ -361,7 +361,7 @@ func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecy
 		if err != nil {
 			return nil, err
 		}
-		broker.ServiceId = config.Service.ID
+		broker.ServiceId = discovery.GenerateInstanceID(ServiceName)
 		broker.ServiceName = ServiceName
 		pubsubFactory = broker
 	default:
@@ -399,7 +399,7 @@ func ProvideDB(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle)
 	dbo, err := postgres.New(
 		postgres.Logger(logger),
 		postgres.ConnOptions(
-			postgres.FallbackApplicationName(config.Service.ID),
+			postgres.FallbackApplicationName(discovery.GenerateInstanceID(ServiceName)),
 		),
 		postgres.DataSourceName(config.Postgres.DSN),
 	)
