@@ -16,6 +16,7 @@ import (
 	"github.com/webitel/im-account-service/infra/x/grpcx"
 	"github.com/webitel/im-account-service/infra/x/logx"
 	"github.com/webitel/im-account-service/internal/errors"
+	"github.com/webitel/webitel-go-kit/pkg/semconv"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -41,7 +42,7 @@ var Module = fx.Module(
 					go func() {
 						logger.Info(fmt.Sprintf("[ server ] Listening [grpc] %s", srv.Addr)) // %s:%d", srv.Host(), srv.Port()))
 						if err := srv.Listen(); err != nil {
-							logger.Error("grpc server error", "error", err)
+							logger.Error("grpc server error", semconv.ErrorKey, err)
 						}
 					}()
 
@@ -49,7 +50,7 @@ var Module = fx.Module(
 				},
 				OnStop: func(ctx context.Context) error {
 					if err := srv.Shutdown(); err != nil {
-						logger.Error("error stopping grpc server", "error", err.Error())
+						logger.Error("error stopping grpc server", semconv.ErrorKey, err.Error())
 
 						return err
 					}
@@ -76,7 +77,7 @@ func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 
 	serverOpts := []grpc.ServerOption{
 		// grpc.ChainUnaryInterceptor(),
-		
+
 	}
 
 	// Configure TLS if provided
@@ -109,7 +110,7 @@ func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 				ctx, operationTimeout, errOperationTimeout,
 			)
 			defer cancel()
-			
+
 			res, err = invoke(ctx, req)
 
 			if err != nil {
@@ -131,7 +132,7 @@ func New(addr string, log *slog.Logger, ssl *tls.Config) (*Server, error) {
 			// type grpcstatus interface {
 			// 	GRPCStatus() *status.Status
 			// }
-			
+
 			// if impl, ok := err.(grpcstatus); ok {
 			// 	if impl.GRPCStatus().Message() == context.DeadlineExceeded.Error() {
 			// 		cause := context.Cause(ctx)
