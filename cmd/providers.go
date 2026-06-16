@@ -95,10 +95,7 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, logger.Lo
 		}
 	}
 
-	kit, err := depenlog.New(dcfg, opts...)
-	if err != nil {
-		return nil, nil, err
-	}
+	kit := depenlog.New(dcfg, opts...)
 
 	return slog.Default(), kit, nil
 }

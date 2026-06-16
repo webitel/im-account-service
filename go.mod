@@ -21,7 +21,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/webitel/webitel-go-kit/infra/otel v0.0.0-20251219114945-08628fe6d5da
 	github.com/webitel/webitel-go-kit/infra/profiler v0.0.0-20260323001146-8a6a55d94da8
-	github.com/webitel/webitel-go-kit/pkg/logger v0.1.2-0.20260615101727-26861659cbae
+	github.com/webitel/webitel-go-kit/pkg/logger v0.1.2-0.20260616092333-51ced8c22b68
 	go.opentelemetry.io/contrib/bridges/otelslog v0.14.0
 	go.opentelemetry.io/otel v1.39.0
 	go.opentelemetry.io/otel/sdk v1.39.0
@@ -122,8 +122,8 @@ require (
 
 require (
 	github.com/webitel/webitel-go-kit/appconfig v0.0.0-20260602143553-df89d5e34680
-	github.com/webitel/webitel-go-kit/pkg/depenlog v0.0.0-20260615101727-26861659cbae
+	github.com/webitel/webitel-go-kit/pkg/depenlog v0.0.0-20260616092333-51ced8c22b68
 	github.com/webitel/webitel-go-kit/pkg/semconv v0.0.0
 )
 
-replace github.com/webitel/webitel-go-kit/pkg/semconv => github.com/webitel/webitel-go-kit/pkg/semconv v0.0.0-20260615101727-26861659cbae
+replace github.com/webitel/webitel-go-kit/pkg/semconv => github.com/webitel/webitel-go-kit/pkg/semconv v0.0.0-20260616092333-51ced8c22b68
