@@ -9,6 +9,7 @@ import (
 
 	"github.com/webitel/im-account-service/internal/errors"
 	"github.com/webitel/im-account-service/internal/model"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -52,8 +53,9 @@ type Context struct {
 
 	// beforeEnd []func(*Context) error
 	// afterEnd  []func(*Context) error
-
 }
+
+func (c *Context) UpdateIncomingHeaders() { grpc.SetHeader(c.Context, c.Header) }
 
 // Control Option
 type Control interface {
@@ -64,6 +66,7 @@ type Control interface {
 type ControlFunc func(rpc *Context) error
 
 var _ Control = ControlFunc(nil)
+
 func (fn ControlFunc) Do(rpc *Context) error {
 	if fn != nil {
 		return fn(rpc)
@@ -119,6 +122,7 @@ func (ctx *Context) Init(ctls ...Control) error {
 			return ctx.Error
 		}
 	}
+
 	// [ OK ]
 	return nil
 }
@@ -148,7 +152,7 @@ func (c *Manager) bind(rpc *Context) error {
 }
 
 func (c *Manager) GetContext(ctx context.Context, ctrl ...Control) (rpc *Context, err error) {
-	
+
 	rpc, err = GetContext(ctx, ControlFunc(c.bind))
 
 	if err == nil && len(ctrl) > 0 {

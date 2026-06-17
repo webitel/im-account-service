@@ -2,9 +2,13 @@ package auth
 
 import (
 	// goerror "errors"
+	"encoding/base64"
+	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/lestrrat-go/jwx/v3"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/webitel/im-account-service/internal/errors"
 	"github.com/webitel/im-account-service/internal/model"
 	"github.com/webitel/im-account-service/internal/service"
@@ -21,6 +25,8 @@ type JWTokenAuthentication struct {
 	// [X-Webitel-Client] credentials used if not specified
 	App *model.Application
 }
+
+func (JWTokenAuthentication) String() string { return "jwt-identity" }
 
 // Authenticate ctx.Contact (User) Identity.
 //
@@ -99,88 +105,6 @@ func (x JWTokenAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 
 	// Verify & Parse & Validate JWT token
 
-	// // prepare output
-	// token := jwt.New()
-	// token.Options().Enable(jwt.FlattenAudience)
-	// // prove is well signed & valid JWT (compact) token given !
-	// token, err = jwt.ParseString(
-	// 	// input
-	// 	bearer,
-	// 	// options
-	// 	jwt.WithToken(token), // output
-
-	// 	jwt.WithVerify(false), // no App to prove signature yet
-	// 	// jwt.WithVerify(true),
-	// 	// jwt.WithKeySet(scheme.JWKs),
-
-	// 	jwt.WithValidate(true),
-	// 	jwt.WithContext(rpc.Context),
-	// 	jwt.WithClock(jwt.ClockFunc(
-	// 		// MUST be valid at the request date !
-	// 		func() time.Time { return rpc.Date },
-	// 	)),
-	// 	// jwt.WithValidator(jwt.ValidatorFunc(
-	// 	// 	func(ctx context.Context, token jwt.Token) error {
-	// 	// 		// "iss" MUST be oneof registered app.auth.(jwt).issuers
-	// 	// 		iss, ok := token.Issuer()
-	// 	// 		if !ok || iss == "" {
-	// 	// 			return jwt.InvalidIssuerError()
-	// 	// 		}
-	// 	// 		ok = false
-	// 	// 		knownIss := c.conf.GetIssuers()
-	// 	// 		for _, allow := range knownIss {
-	// 	// 			if ok = (allow == iss); ok {
-	// 	// 				break
-	// 	// 			}
-	// 	// 		}
-	// 	// 		if !ok {
-	// 	// 			return jwt.InvalidIssuerError()
-	// 	// 		}
-	// 	// 		// OK
-	// 	// 		return nil
-	// 	// 	},
-	// 	// )),
-
-  //   // func WithCookie(v **http.Cookie) ParseOption
-  //   // func WithCookieKey(v string) ParseOption
-  //   // func WithFormKey(v string) ParseOption
-  //   // func WithHeaderKey(v string) ParseOption
-  //   // func WithKeyProvider(v jws.KeyProvider) ParseOption
-  //   // func WithKeySet(set jwk.Set, options ...any) ParseOption
-  //   // func WithPedantic(v bool) ParseOption
-  //   // func WithToken(v Token) ParseOption
-  //   // func WithTypedClaim(name string, object any) ParseOption
-  //   // func WithValidate(v bool) ParseOption
-  //   // func WithVerify(v bool) ParseOption
-  //   // func WithVerifyAuto(f jwk.Fetcher, options ...jwk.FetchOption) ParseOption
-
-	// 	// jwt.WithAcceptableSkew(v time.Duration) ValidateOption
-  //   // jwt.WithAudience(s string) ValidateOption
-  //   // jwt.WithClaimValue(name string, v any) ValidateOption
-  //   // jwt.WithClock(v Clock) ValidateOption
-  //   // jwt.WithContext(v context.Context) ValidateOption
-  //   // jwt.WithIssuer(s string) ValidateOption
-  //   // jwt.WithJwtID(s string) ValidateOption
-  //   // jwt.WithMaxDelta(dur time.Duration, c1, c2 string) ValidateOption
-  //   // jwt.WithMinDelta(dur time.Duration, c1, c2 string) ValidateOption
-  //   // jwt.WithRequiredClaim(name string) ValidateOption
-  //   // jwt.WithResetValidators(v bool) ValidateOption
-  //   // jwt.WithSubject(s string) ValidateOption
-  //   // jwt.WithValidator(v Validator) ValidateOption
-
-	// )
-
-	// // jws_message, err := jws.Parse(
-	// // 	compact,
-	// // 	jws.WithCompact(),
-	// // )
-	// // _ = jws_message
-
-	// if err != nil {
-	// 	// if goerror.Is(err, jws.ParseError()) {}
-	// 	return false, err
-	// }
-
 	// Extract Contact Identity from JWT payload ..
 	token, idtoken, err := scheme.GetContact(
 		rpc.Context, rpc.Date, bearer,
@@ -190,17 +114,6 @@ func (x JWTokenAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 	}
 	// TODO: cache parsed JWToken result
 	_ = token
-
-	// jwtoken, idtoken, err := scheme.GetIdentity(rpc.Context, rpc.Date, bearer)
-	// if err != nil {
-	// 	return err, err
-	// }
-	// _ = jwtoken 
-	// // Build Contact profile ..
-	// profile, err := scheme.NewIdentity(idtoken)
-	// if err != nil {
-	// 	return err, err
-	// }
 
 	// Save / Update latest Contact profile info
 	err = rpc.Service.AddContact(rpc.Context, idtoken)
@@ -214,11 +127,7 @@ func (x JWTokenAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 
 	// Find session for ( device + contact )
 	// err = DeviceAuthorization(false)(rpc)
-	err = rpc.Init(
-		DeviceAuthentication{Require: false},
-	)
-	
-	if err != nil {
+	if err = rpc.Init(DeviceAuthentication{Require: false}); err != nil {
 		return bearer, err
 	}
 
@@ -250,14 +159,14 @@ func (x JWTokenAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 	if session == nil {
 		// Not Found ; Init ..
 		session = &model.Authorization{
-			Id:     "", // Not Found
-			Dc:     app.GetDc(),
-			IP:     rpc.Device.IP(),
-			Date:   rpc.Date,
-			Name:   model.SessionName(rpc.Device),
-			AppId:  app.ClientId(), // MUST
-			Device: (*rpc.Device), // shallowcopy
-			Contact: refUser,
+			Id:       "", // Not Found
+			Dc:       app.GetDc(),
+			IP:       rpc.Device.IP(),
+			Date:     rpc.Date,
+			Name:     model.SessionName(rpc.Device),
+			AppId:    app.ClientId(), // MUST
+			Device:   (*rpc.Device),  // shallowcopy
+			Contact:  refUser,
 			Metadata: make(map[string]any),
 			Current:  false,
 			//Grant:    nil,
@@ -269,10 +178,61 @@ func (x JWTokenAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 	rpc.Dc = session.Dc
 	rpc.Session = session
 
-	// [ OK ]
+	if err = trySetTokenPayloadIntoHeaders(rpc, token); err != nil {
+		slog.Error(
+			"propagating token payload into rpc headers",
+			slog.Any("error", err),
+			slog.String("id", idtoken.Id),
+			slog.String("iss", idtoken.Iss),
+			slog.String("sub", idtoken.Sub),
+		)
+	}
+
 	return bearer, nil
 }
 
-func (JWTokenAuthentication) String() string {
-	return "jwt-identity"
+func extractTokenPayload(token jwt.Token) (string, error) {
+	if token == nil {
+		return "", nil
+	}
+
+	tokenPayload, err := json.Marshal(token)
+	if err != nil {
+		return "", errors.New(errors.Message("parsing jwt token payload for propagation"))
+	}
+
+	encodedPayload := base64.RawStdEncoding.EncodeToString(tokenPayload)
+
+	return encodedPayload, nil
+}
+
+func tryPrepareRPCContext(rpc *service.Context) error {
+	if rpc == nil {
+		return errors.BadRequest(errors.Message("received nil pointer rpc call"))
+	}
+
+	if rpc.Header == nil {
+		rpc.Header = make(map[string][]string)
+	}
+
+	return nil
+}
+
+func trySetTokenPayloadIntoHeaders(rpc *service.Context, token jwt.Token) error {
+	tokenPayload, err := extractTokenPayload(token)
+	if err != nil {
+		return err
+	}
+
+	if tokenPayload == "" {
+		return errors.BadRequest(errors.Message("empty payload from jwt token"))
+	}
+
+	if err = tryPrepareRPCContext(rpc); err != nil {
+		return err
+	}
+
+	rpc.Header.Set(service.XJwtPayloadHeader, tokenPayload)
+
+	return nil
 }

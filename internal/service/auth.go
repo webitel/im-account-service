@@ -1,6 +1,8 @@
 package service
 
-import "github.com/webitel/im-account-service/internal/errors"
+import (
+	"github.com/webitel/im-account-service/internal/errors"
+)
 
 // Authentication Policy. Scheme
 type AuthenticationScheme interface {
@@ -22,8 +24,8 @@ type AuthenticationScheme interface {
 
 // Authenticate Context Control
 type Authenticate struct {
-	Hint bool // Just identify session & skip verification .. if creds provided ..
-	Require bool // Require credentials
+	Hint    bool                   // Just identify session & skip verification .. if creds provided ..
+	Require bool                   // Require credentials
 	Schemes []AuthenticationScheme // Schemes available for authentication ..
 }
 
@@ -33,7 +35,13 @@ var ErrAccountUnauthorized = errors.Unauthorized(
 )
 
 func (x Authenticate) Do(rpc *Context) error {
-		
+	defer func() {
+		if len(rpc.Header.Get(XJwtPayloadHeader)) > 0 {
+			rpc.UpdateIncomingHeaders()
+			return
+		}
+	}()
+
 	if rpc.Contact != nil {
 		// once ; OK
 		return nil
