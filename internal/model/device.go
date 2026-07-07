@@ -183,9 +183,16 @@ func GetDeviceAuthorization(ctx context.Context) (peer Device, ok bool) {
 	// ---------------------------------------------------
 	peer.Addr = RemoteAddr(ctx)
 	// User-Agent
+	// Prefer the original client [User-Agent] forwarded by the gateway via
+	// [X-Forwarded-User-Agent]: grpc-go rewrites the reserved [user-agent]
+	// header on every hop, so a direct read yields the gateway's own
+	// "grpc-go/x.y.z" rather than the end-user device. Symmetric with the
+	// [X-Forwarded-For] / [X-Real-IP] handling in RemoteAddr. Falls back to
+	// [user-agent] for clients that connect to this service directly.
 	peer.App = ua.UserAgent{
-		String: GetHeaderH2(
-			h2, H2_User_Agent,
+		String: Coalesce(
+			GetHeaderH2(h2, H2_X_Forwarded_User_Agent),
+			GetHeaderH2(h2, H2_User_Agent),
 		),
 	}
 	// User-Agent:

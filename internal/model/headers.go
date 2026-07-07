@@ -17,6 +17,9 @@ const (
 	H1_User_Agent      = "User-Agent"
 	H1_X_Forwarded_For = "X-Forwarded-For"
 	H1_X_Real_IP       = "X-Real-IP"
+	// Original (end-user) client [User-Agent], forwarded through the gateway.
+	// The reserved [User-Agent] is rewritten by grpc-go on each hop.
+	H1_X_Forwarded_User_Agent = "X-Forwarded-User-Agent"
 	// Webitel [Device]=[subscriber_id] client-self identification token ; header
 	H1_X_Device_ID = "X-Webitel-Device"
 	// Webitel [Application]=[client_id] authorization ; header
@@ -47,6 +50,9 @@ const (
 	H2_User_Agent      = "user-agent"
 	H2_X_Forwarded_For = "x-forwarded-for"
 	H2_X_Real_IP       = "x-real-ip"
+	// Original (end-user) client [User-Agent], forwarded through the gateway.
+	// The reserved [user-agent] is rewritten by grpc-go on each hop.
+	H2_X_Forwarded_User_Agent = "x-forwarded-user-agent"
 
 	H2_From_Service    = "from-service" // Native [Service] authorization
 	H2_From_Service_ID = "from-service-id"
