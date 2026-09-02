@@ -34,7 +34,7 @@ type Application struct {
 
 	opts *v1.Application // configuration
 
-	mx sync.Mutex
+	mx      sync.Mutex
 	clients AppClients
 }
 
@@ -42,15 +42,16 @@ type ApplicationList = Dataset[Application]
 
 func NewApplication(input *v1.InputApp) *Application {
 	config := &v1.Application{
-		Dc:       input.GetDc(),
-		Id:       uuid.NewString(),
-		Name:     input.GetName(),
-		About:    input.GetAbout(),
-		Block:    nil, // &impb.Revocation{},
-		Clients:  input.GetClients(),
-		Service:  input.GetService(), // LIMIT, UPDATES, PUSH
-		Account:  nil,                // &impb.Account{},
-		Contacts: input.GetContacts(),
+		Dc:                  input.GetDc(),
+		Id:                  uuid.NewString(),
+		Name:                input.GetName(),
+		About:               input.GetAbout(),
+		Block:               nil, // &impb.Revocation{},
+		Clients:             input.GetClients(),
+		Service:             input.GetService(), // LIMIT, UPDATES, PUSH
+		Account:             nil,                // &impb.Account{},
+		Contacts:            input.GetContacts(),
+		AllowSystemMessages: input.GetAllowSystemMessages(),
 	}
 	return &Application{
 		opts: config,
@@ -60,7 +61,7 @@ func NewApplication(input *v1.InputApp) *Application {
 func (app *Application) Log(level slog.Level, msg string, args ...any) {
 	slog.Default().Log(
 		context.Background(), level,
-		msg, append([]any{ slog.String("app.id", app.ClientId()) }, args...)...,
+		msg, append([]any{slog.String("app.id", app.ClientId())}, args...)...,
 	)
 }
 
