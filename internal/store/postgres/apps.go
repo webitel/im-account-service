@@ -147,7 +147,7 @@ var protojsonCodec = struct {
 }{
 	UnmarshalOptions: protojson.UnmarshalOptions{
 		AllowPartial:   true,
-		DiscardUnknown: false,
+		DiscardUnknown: true,
 		RecursionLimit: 0,
 		Resolver:       nil,
 	},
