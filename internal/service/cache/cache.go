@@ -8,6 +8,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
+	"github.com/webitel/webitel-go-kit/pkg/semconv"
 )
 
 // LRU cache store.
@@ -18,18 +19,18 @@ type LRU struct {
 	rm *record // []*Index[T]
 
 	mu  sync.RWMutex // protects index of keys
-	seq id         // last num added ; sequence
+	seq id           // last num added ; sequence
 	// keys  IndexFunc[T] // extract UNIQUE keys for Value
 	index map[any]id // map[key](*index).num
 	table simplelru.LRUCache[id, *record]
 }
 
 func New(opts ...Option) *LRU {
-  c := &LRU{
-  	opts:    newOptions(opts),
-  	index:   make(map[any]id),
-  }
-  if c.opts.TTL <= 0 {
+	c := &LRU{
+		opts:  newOptions(opts),
+		index: make(map[any]id),
+	}
+	if c.opts.TTL <= 0 {
 		if size := c.opts.Size; size > 0 {
 			var crit error
 			c.table, crit = lru.NewWithEvict(
@@ -117,8 +118,8 @@ func (c *LRU) lookup(keys []any) (rows []id) {
 	// defer c.mu.Unlock()
 
 	var (
-		id id
-		ok bool
+		id   id
+		ok   bool
 		e, n int
 	)
 
@@ -141,19 +142,19 @@ func (c *LRU) lookup(keys []any) (rows []id) {
 }
 
 func (c *LRU) project(data any) (keys []any) {
-  if c.opts.IndexKeys != nil {
-    keys = c.opts.IndexKeys(data)
-    if len(keys) > 0 {
-      return keys
-    }
-  }
-  if self, _ := data.(Value); self != nil {
-    keys = self.Keys()
-    if len(keys) > 0 {
-      return keys
-    }
-  }
-  panic("cache: add value without keys")
+	if c.opts.IndexKeys != nil {
+		keys = c.opts.IndexKeys(data)
+		if len(keys) > 0 {
+			return keys
+		}
+	}
+	if self, _ := data.(Value); self != nil {
+		keys = self.Keys()
+		if len(keys) > 0 {
+			return keys
+		}
+	}
+	panic("cache: add value without keys")
 }
 
 func (c *LRU) Num() int {
@@ -189,7 +190,7 @@ func (c *LRU) Add(val any) (err error) {
 					return slog.GroupValue(
 						slog.Int("cache.size", size),
 						slog.Any("index.keys", slogKeys(keys)),
-						slog.Any("error", err),
+						slog.Any(semconv.ErrorKey, err),
 					)
 				}
 
@@ -245,9 +246,9 @@ func (c *LRU) Add(val any) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	size = c.table.Len()         // before
-	keys = c.project(val) // for index given [set] value !
-	rows := c.lookup(keys)         // node.(index).num(s) of the [keys] found !
+	size = c.table.Len()   // before
+	keys = c.project(val)  // for index given [set] value !
+	rows := c.lookup(keys) // node.(index).num(s) of the [keys] found !
 	// // var old, new *index[V]
 	// // var drop []any
 	// var (
@@ -321,7 +322,7 @@ func (c *LRU) Add(val any) (err error) {
 func (c *LRU) Get(key any) (val any) {
 
 	var (
-		ok   bool
+		ok  bool
 		row *record
 	)
 	// UNLOCKED ; async
@@ -375,7 +376,7 @@ func (c *LRU) Del(val any) bool {
 	defer c.mu.Unlock()
 
 	keys := c.project(val) // for index fiven [reg] value !
-	rows := c.lookup(keys)          // node.(index).num(s) of the [keys] found !
+	rows := c.lookup(keys) // node.(index).num(s) of the [keys] found !
 
 	switch len(rows) {
 	case 0:

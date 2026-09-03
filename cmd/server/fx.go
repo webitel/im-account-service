@@ -1,12 +1,12 @@
 package server
 
 import (
-	"context"
-	"log/slog"
 	"net/http"
 
 	"github.com/webitel/im-account-service/infra/tls"
 	"github.com/webitel/webitel-go-kit/infra/profiler"
+	"github.com/webitel/webitel-go-kit/pkg/depenlog"
+	"github.com/webitel/webitel-go-kit/pkg/logger"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
@@ -42,18 +42,8 @@ func NewApp(cfg *config.Config) *fx.App {
 			cmd.ProvideDB,
 			cmd.ProvideProfiler,
 		),
-		fx.WithLogger(func(stdlog *slog.Logger) fxevent.Logger {
-			const debugLog = slog.LevelDebug
-			if !(logx.Debug("fx") && stdlog.Enabled(context.TODO(), debugLog)) {
-				return fxevent.NopLogger
-			}
-			fxlog := &fxevent.SlogLogger{
-				Logger: logx.ModuleLogger("fx", stdlog), // stdlog,
-			}
-			// fxlog.UseLogLevel(slog.LevelInfo) // default
-			// fxlog.UseErrorLevel(slog.LevelError) // default
-			fxlog.UseLogLevel(debugLog)
-			return fxlog
+		fx.WithLogger(func(l logger.Logger) fxevent.Logger {
+			return depenlog.FxLogger(l)
 		}),
 		tls.Module,
 		postgres.Module,
