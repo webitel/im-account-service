@@ -10,7 +10,7 @@ require (
 	github.com/ThreeDotsLabs/watermill-amqp/v3 v3.0.2
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/lestrrat-go/httprc/v3 v3.0.2
 	github.com/lestrrat-go/jwx/v3 v3.0.13
 	github.com/lmittmann/tint v1.1.2
