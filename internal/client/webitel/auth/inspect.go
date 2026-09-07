@@ -26,10 +26,18 @@ func (c *Client) Inspect(ctx context.Context, token string, opts ...InspectOptio
 	}()
 
 	// from cache ..
-	var found bool
-	if debug, found = c.cache.Get(token); found {
-		return // debug, nil
+	if cached, found := c.cache.Get(token); found {
+		if checkTokenIsValid(&tx, cached) {
+			debug = cached
+
+			return // debug, nil
+		}
+
+		tx.Error = nil // stale ; ask the authority again
+
+		c.cache.Remove(token)
 	}
+
 	// DO send request !
 	md := c.creds.Copy()
 	md.Set("x-webitel-access", token)
