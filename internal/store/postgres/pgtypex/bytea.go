@@ -11,8 +11,8 @@ var _ pgtype.BytesScanner = ScanBytesFunc(nil)
 // that is only valid until the next database method call.
 func (scan ScanBytesFunc) ScanBytes(v []byte) error {
 	if scan != nil {
-		scan(v)
+		return scan(v)
 	}
-	// ignore
+
 	return nil
 }
