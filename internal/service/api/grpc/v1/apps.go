@@ -8,6 +8,7 @@ import (
 	"github.com/webitel/im-account-service/internal/model"
 	"github.com/webitel/im-account-service/internal/store"
 	impb "github.com/webitel/im-account-service/proto/gen/im/service/admin/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type ApplicationService struct {
@@ -54,7 +55,16 @@ func (c *ApplicationService) SearchApps(ctx context.Context, req *impb.SearchApp
 	}
 
 	for _, row := range list.Data {
-		res.Data = append(res.Data, row.Proto())
+		app := row.Proto()
+		res.Data = append(res.Data, app)
+
+		// TEMP DEBUG: remove once app_config restricted=false mystery is resolved.
+		raw, _ := protojson.Marshal(app)
+		c.logger.Warn("SEARCH_APPS_DEBUG_RESULT",
+			slog.String("app_id", app.GetId()),
+			slog.Bool("allow_system_messages_nil", app.GetAllowSystemMessages() == nil),
+			slog.String("raw", string(raw)),
+		)
 	}
 
 	return res, nil
