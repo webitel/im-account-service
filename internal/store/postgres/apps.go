@@ -1,7 +1,9 @@
 package postgres
 
 import (
+	"bytes"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -116,6 +118,20 @@ func (c *AppStore) Search(req store.SearchAppRequest) (*model.ApplicationList, e
 			pgtypex.ScanBytesFunc(func(src []byte) error {
 				enc := &protojsonCodec
 				err := enc.Unmarshal(src, row)
+
+				// TEMP DEBUG: remove once app_config restricted=false mystery is resolved.
+				tail := src
+				if len(tail) > 80 {
+					tail = tail[len(tail)-80:]
+				}
+				slog.Warn("APP_CONFIG_RAW_SCAN_DEBUG",
+					slog.String("app_id", row.GetId()),
+					slog.Int("raw_len", len(src)),
+					slog.Bool("contains_allow_system_messages", bytes.Contains(src, []byte("allow_system_messages"))),
+					slog.String("raw_tail", string(tail)),
+					slog.Any("unmarshal_err", err),
+				)
+
 				if err != nil {
 					return err
 				}
@@ -146,8 +162,12 @@ var protojsonCodec = struct {
 	protojson.MarshalOptions
 }{
 	UnmarshalOptions: protojson.UnmarshalOptions{
-		AllowPartial:   true,
-		DiscardUnknown: true,
+		AllowPartial: true,
+		// TEMP DEBUG: was `true` (since ca82631) -- flipped to surface the
+		// silently-dropped `allow_system_messages` field as an explicit error
+		// instead of discarding it. Revert once app_config restricted=false
+		// mystery is resolved.
+		DiscardUnknown: false,
 		RecursionLimit: 0,
 		Resolver:       nil,
 	},
