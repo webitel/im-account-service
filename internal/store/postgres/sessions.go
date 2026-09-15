@@ -750,11 +750,20 @@ func (c *SessionStore) RegisterDevice(req store.RegisterDeviceRequest) error {
 	err = c.dbo.Client().QueryRow(
 		req.Context, query, args,
 	).Scan(
+		// here we expect ONLY one condition to be met
+		// - UPDATE: ( true, NULL )
+		// - CREATE: ( false, UUID )
 		&ok, pgtypex.ScanTextFunc(func(src pgtype.Text) error {
+			// NULL ?
+			if src.String == "" { // ~= !src.Valid // MAY {"",true}
+				// NOT CREATED
+				return nil
+			}
+			// CHECK: We must NOT reassign session.id
 			if session.Id != "" {
 				return fmt.Errorf("device.register(): something went wrong")
 			}
-			// CREATED
+			// CREATED ; bind generated id
 			session.Id = src.String
 			return nil
 		}),
