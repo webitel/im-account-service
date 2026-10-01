@@ -99,6 +99,7 @@ func (api *AccountService) Token(ctx context.Context, req *v1.TokenRequest) (*v1
 					App:                 contact.App,
 					Type:                contact.Type,
 					Name:                contact.Name,
+					ChatName:            contact.ChatName,
 					GivenName:           contact.GivenName,
 					MiddleName:          contact.MiddleName,
 					FamilyName:          contact.FamilyName,
@@ -695,6 +696,7 @@ func currentAuthorizationProtoV1(rpc *service.Context) (*v1.Authorization, error
 			App:                 contact.App,
 			Type:                contact.Type,
 			Name:                contact.Name,
+			ChatName:            contact.ChatName,
 			GivenName:           contact.GivenName,
 			MiddleName:          contact.MiddleName,
 			FamilyName:          contact.FamilyName,
@@ -888,9 +890,9 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 		// FIXME: lookup SINGLE session( app_id, device_id );
 		hint, err = api.Service.GetSession(
 			rpc.Context, func(req *service.SessionListOptions) error {
-				req.Dc =        rpc.App.GetDc()
-				req.AppId =     rpc.App.ClientId()
-				req.DeviceId =  rpc.Device.Id
+				req.Dc = rpc.App.GetDc()
+				req.AppId = rpc.App.ClientId()
+				req.DeviceId = rpc.Device.Id
 				// req.ContactId = nil
 				// req.Token =     ""
 				return nil
@@ -965,9 +967,9 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 			Date: rpc.Date,
 			Name: model.SessionName(rpc.Device),
 			// Grant:  &grant,
-			AppId:  rpc.App.ClientId(),
-			Device: (*rpc.Device),
-			Contact: signIn,
+			AppId:    rpc.App.ClientId(),
+			Device:   (*rpc.Device),
+			Contact:  signIn,
 			Metadata: make(map[string]any),
 			// Current:  true,
 		}
@@ -1014,38 +1016,6 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 						)
 					}),
 				)...,
-				// "session", slogx.DeferValue(func() slog.Value {
-				// 	return slog.GroupValue(
-				// 		slog.Int64("dc", session.Dc),
-				// 		slog.String("id", session.Id),
-				// 		slog.String("name", session.Name),
-				// 		slog.String("app.id", session.AppId),
-				// 		slog.Group("device",
-				// 			"id", session.Device.Id,
-				// 			"push", (session.Device.Push.GetToken() != nil),
-				// 		),
-				// 		slog.Group("contact",
-				// 			"iss", session.Contact.Iss,
-				// 			"sub", session.Contact.Sub,
-				// 		),
-				// 	)
-				// }),
-			)
-		}
-		
-		// SIGN-IN [NEW] Contact (identity)
-		session.Contact = signIn
-		
-		rpc.Info(
-			"[ Authorization ] Sign-IN", append(trace,
-				"contact", slogx.DeferValue(func() slog.Value {
-					return slog.GroupValue(
-						slog.String("id", signIn.Id),
-						slog.String("iss", signIn.Iss),
-						slog.String("sub", signIn.Sub),
-					)
-				}),
-			)...,
 			// "session", slogx.DeferValue(func() slog.Value {
 			// 	return slog.GroupValue(
 			// 		slog.Int64("dc", session.Dc),
@@ -1062,60 +1032,92 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 			// 		),
 			// 	)
 			// }),
+			)
+		}
+
+		// SIGN-IN [NEW] Contact (identity)
+		session.Contact = signIn
+
+		rpc.Info(
+			"[ Authorization ] Sign-IN", append(trace,
+				"contact", slogx.DeferValue(func() slog.Value {
+					return slog.GroupValue(
+						slog.String("id", signIn.Id),
+						slog.String("iss", signIn.Iss),
+						slog.String("sub", signIn.Sub),
+					)
+				}),
+			)...,
+		// "session", slogx.DeferValue(func() slog.Value {
+		// 	return slog.GroupValue(
+		// 		slog.Int64("dc", session.Dc),
+		// 		slog.String("id", session.Id),
+		// 		slog.String("name", session.Name),
+		// 		slog.String("app.id", session.AppId),
+		// 		slog.Group("device",
+		// 			"id", session.Device.Id,
+		// 			"push", (session.Device.Push.GetToken() != nil),
+		// 		),
+		// 		slog.Group("contact",
+		// 			"iss", session.Contact.Iss,
+		// 			"sub", session.Contact.Sub,
+		// 		),
+		// 	)
+		// }),
 		)
 	}
 
 	// if session.Grant == nil {
 
-		// todo = max(todo, update)
-		// Generate NEW [access_token] for session Authorization !
-		grant, err := service.TokenGen.Generate(
-			model.TokenNoRefresh(),
-			model.TokenNotBefore(rpc.Date),
-			model.TokenScope(req.GetScope()),
-		)
+	// todo = max(todo, update)
+	// Generate NEW [access_token] for session Authorization !
+	grant, err := service.TokenGen.Generate(
+		model.TokenNoRefresh(),
+		model.TokenNotBefore(rpc.Date),
+		model.TokenScope(req.GetScope()),
+	)
 
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
+	}
 
-		// if grant.Token != "" && !strings.HasPrefix(grant.Token, handler.SessionTokenPrefix) {
-		// 	grant.Token = handler.SessionTokenPrefix + grant.Token
-		// }
+	// if grant.Token != "" && !strings.HasPrefix(grant.Token, handler.SessionTokenPrefix) {
+	// 	grant.Token = handler.SessionTokenPrefix + grant.Token
+	// }
 
-		// assign !
-		// revoked := session.Grant // current
-		session.Grant = &grant // generated
+	// assign !
+	// revoked := session.Grant // current
+	session.Grant = &grant // generated
 
-		rpc.Info(
-			// "NEW Token [RE]Generation",
-			"[ Authorization ] NEW Token",
-			"session", slogx.DeferValue(func() slog.Value {
-				var pushVia string // PUSH: service [VIA] kind ; not registered
-				if regpush := session.Device.Push; regpush.GetToken() != nil {
-					protom := session.Device.Push.ProtoReflect()
-					pushVia = string(protom.WhichOneof(
-						protom.Descriptor().Oneofs().ByName("token"),
-					).Name())
-				}
-				return slog.GroupValue(
-					slog.Int64("dc", session.Dc),
-					slog.String("id", session.Id),
-					slog.String("name", session.Name),
-					slog.String("app.id", session.AppId),
-					slog.Group("device",
-						"id", session.Device.Id,
-						// "push", (session.Device.Push.GetToken() != nil),
-						"push", pushVia,
-					),
-					slog.Group("contact",
-						"id",  session.Contact.Id,
-						"iss", session.Contact.Iss,
-						"sub", session.Contact.Sub,
-					),
-				)
-			}),
-		)
+	rpc.Info(
+		// "NEW Token [RE]Generation",
+		"[ Authorization ] NEW Token",
+		"session", slogx.DeferValue(func() slog.Value {
+			var pushVia string // PUSH: service [VIA] kind ; not registered
+			if regpush := session.Device.Push; regpush.GetToken() != nil {
+				protom := session.Device.Push.ProtoReflect()
+				pushVia = string(protom.WhichOneof(
+					protom.Descriptor().Oneofs().ByName("token"),
+				).Name())
+			}
+			return slog.GroupValue(
+				slog.Int64("dc", session.Dc),
+				slog.String("id", session.Id),
+				slog.String("name", session.Name),
+				slog.String("app.id", session.AppId),
+				slog.Group("device",
+					"id", session.Device.Id,
+					// "push", (session.Device.Push.GetToken() != nil),
+					"push", pushVia,
+				),
+				slog.Group("contact",
+					"id", session.Contact.Id,
+					"iss", session.Contact.Iss,
+					"sub", session.Contact.Sub,
+				),
+			)
+		}),
+	)
 	// }
 
 	if hint == nil {
