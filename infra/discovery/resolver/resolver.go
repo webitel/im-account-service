@@ -10,6 +10,7 @@ import (
 	"github.com/webitel/im-account-service/infra/transport/endpoint"
 	"github.com/webitel/im-account-service/infra/transport/subset"
 	"github.com/webitel/webitel-go-kit/infra/discovery"
+	"github.com/webitel/webitel-go-kit/pkg/semconv"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
 )
@@ -38,7 +39,7 @@ func (r *discoveryResolver) Close() {
 	r.cancel()
 
 	if err := r.w.Stop(); err != nil {
-		slog.Error("[ RESOLVER ] failed to watch top", "err", err)
+		slog.Error("[ RESOLVER ] failed to watch top", semconv.ErrorKey, err)
 	}
 }
 
@@ -59,7 +60,7 @@ func (r *discoveryResolver) watch() {
 				return
 			}
 
-			slog.Error("[ RESOLVER ] failed to watch discovery endpoint", "err", err)
+			slog.Error("[ RESOLVER ] failed to watch discovery endpoint", semconv.ErrorKey, err)
 			time.Sleep(time.Second)
 
 			continue
@@ -82,7 +83,7 @@ func (r *discoveryResolver) update(ins []*discovery.ServiceInstance) {
 	}
 
 	if err := r.cc.UpdateState(resolver.State{Addresses: addrs}); err != nil {
-		slog.Error("[ RESOLVER ] failed to update state", "err", err)
+		slog.Error("[ RESOLVER ] failed to update state", semconv.ErrorKey, err)
 	}
 
 	if r.debugLog {
@@ -100,7 +101,7 @@ func (r *discoveryResolver) filterEndpoints(ins []*discovery.ServiceInstance) (m
 	for _, in := range ins {
 		ept, err := endpoint.ParseEndpoint(in.Endpoints, endpoint.Scheme("grpc", !r.insecure))
 		if err != nil {
-			slog.Error("[ RESOLVER ] failed to parse discovery endpoint", "err", err)
+			slog.Error("[ RESOLVER ] failed to parse discovery endpoint", semconv.ErrorKey, err)
 			continue
 		}
 

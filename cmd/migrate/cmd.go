@@ -15,6 +15,7 @@ import (
 	"github.com/webitel/im-account-service/cmd"
 	"github.com/webitel/im-account-service/config"
 	"github.com/webitel/im-account-service/migrations"
+	"github.com/webitel/webitel-go-kit/pkg/semconv"
 )
 
 func CMD() *cli.Command {
@@ -101,7 +102,7 @@ func (m *migrator) Run(ctx context.Context) error {
 
 	for _, r := range res {
 		if r.Error != nil {
-			m.log.Error("unable to apply migration", "err", r.Error)
+			m.log.Error("unable to apply migration", semconv.ErrorKey, r.Error)
 		} else {
 			m.log.Info("applied migration")
 		}
