@@ -9,6 +9,7 @@ import (
 	"github.com/webitel/im-account-service/internal/model"
 	"github.com/webitel/im-account-service/internal/service/updates"
 	v1 "github.com/webitel/im-account-service/proto/gen/im/service/auth/v1"
+	"github.com/webitel/webitel-go-kit/pkg/semconv"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
@@ -38,11 +39,11 @@ func (c *Manager) Updates() (*UpdatesManager, error) {
 			},
 		},
 	)
-	
+
 	if err != nil {
 		c.Warn(context.TODO(),
 			"Failed to declare Publisher",
-			"err", err,
+			semconv.ErrorKey, err,
 		)
 		return nil, err
 	}
@@ -67,7 +68,7 @@ func (c *Manager) PublishUpdate(args updates.Update) error {
 	if err != nil {
 		c.Warn(context.TODO(),
 			"Failed to publish Update",
-			"err", err,
+			semconv.ErrorKey, err,
 		)
 		return err
 	}
@@ -101,7 +102,7 @@ func (c *UpdatesManager) PublishUpdate(args updates.Update) error {
 	}
 
 	update := message.Message{
-		UUID:     watermill.NewULID(),
+		UUID: watermill.NewULID(),
 		Metadata: message.Metadata{
 			updates.ContentTypeHeader: codec.String(), // charset-utf-8
 			updates.MessageTypeHeader: string(args.ProtoReflect().Descriptor().FullName()),
@@ -124,7 +125,7 @@ func (c *UpdatesManager) PublishUpdate(args updates.Update) error {
 
 // subscribe for im-account-service Updates to sync runtime cache state(s)
 func (c *Manager) subscribeOnClusterUpdates() error {
-  broker := c.opts.Broker
+	broker := c.opts.Broker
 	sub, err := broker.GetFactory().BuildSubscriber(
 		"", // name ; autogen
 		&factory.SubscriberConfig{
@@ -136,7 +137,7 @@ func (c *Manager) subscribeOnClusterUpdates() error {
 			Queue:        ".im-account-cluster", // ".cluster.updates",
 			QueueDurable: false,
 			BindingKey:   "updates.#", // updates.device.#
-			Exclusive:    false, // consumes from cluster node(s) ..
+			Exclusive:    false,       // consumes from cluster node(s) ..
 		},
 	)
 
@@ -153,7 +154,7 @@ func (c *Manager) subscribeOnClusterUpdates() error {
 		c.onClusterUpdate,
 	)
 
-  return nil
+	return nil
 }
 
 func (c *Manager) onClusterUpdate(recv *message.Message) (_ error) {

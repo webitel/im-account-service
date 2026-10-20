@@ -6,20 +6,17 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
-	sfmt "github.com/samber/slog-formatter"
 	"github.com/webitel/webitel-go-kit/infra/profiler"
+	"github.com/webitel/webitel-go-kit/pkg/depenlog"
 	"github.com/webitel/webitel-go-kit/pkg/logger"
+	wsemconv "github.com/webitel/webitel-go-kit/pkg/semconv"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
-	"github.com/lmittmann/tint"
-	"github.com/mattn/go-isatty"
 	"github.com/webitel/im-account-service/config"
 	"github.com/webitel/im-account-service/infra/postgres"
 	"github.com/webitel/im-account-service/infra/pubsub"
@@ -31,7 +28,6 @@ import (
 	"github.com/webitel/webitel-go-kit/infra/discovery"
 	_ "github.com/webitel/webitel-go-kit/infra/discovery/consul"
 	otelsdk "github.com/webitel/webitel-go-kit/infra/otel/sdk"
-	"github.com/webitel/wlog"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.38.0"
@@ -45,53 +41,26 @@ import (
 	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/trace/stdout"
 )
 
-func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
+// ProvideLogger builds the service's unified logger via depenlog and exposes it
+// in two shapes: the *slog.Logger (slog.Default(), for the many consumers that
+// take one) and the logger.Logger handle (for fx and the profiler). depenlog.New
+// installs the logger process-wide — slog.SetDefault plus grpc-go's global
+// logger — so no separate gRPC wiring is needed here.
+func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, logger.Logger, error) {
 	logSettings := cfg.Log
 
 	if !logSettings.Console && !logSettings.Otel && logSettings.File == "" {
 		logSettings.Console = true
 	}
 
-	level := parseLogLevel(logSettings.Level)
-	opts := &slog.HandlerOptions{
-		Level: level,
+	dcfg := depenlog.Config{
+		Level:   logSettings.Level,
+		JSON:    logSettings.JSON,
+		File:    logSettings.File,
+		Console: logSettings.Console,
 	}
 
-	var handlers []slog.Handler
-
-	if logSettings.Console {
-		var h slog.Handler
-		if logSettings.JSON {
-			h = slog.NewJSONHandler(os.Stdout, opts)
-		} else {
-			// h = slog.NewTextHandler(os.Stdout, opts)
-			h = console(os.Stdout, level)
-		}
-		handlers = append(handlers, h)
-	}
-
-	// File Handler
-	if logSettings.File != "" {
-		f, err := os.OpenFile(logSettings.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-		if err != nil {
-			return nil, err
-		}
-
-		lc.Append(fx.Hook{
-			OnStop: func(ctx context.Context) error {
-				return f.Close()
-			},
-		})
-
-		var h slog.Handler
-		if logSettings.JSON {
-			h = slog.NewJSONHandler(f, opts)
-		} else {
-			h = slog.NewTextHandler(f, opts)
-		}
-		handlers = append(handlers, h)
-	}
-
+	var opts []depenlog.Option
 	if logSettings.Otel {
 		service := resource.NewSchemaless(
 			semconv.ServiceName(ServiceName),
@@ -99,140 +68,36 @@ func ProvideLogger(cfg *config.Config, lc fx.Lifecycle) (*slog.Logger, error) {
 			semconv.ServiceInstanceID(discovery.GenerateInstanceID(ServiceName)),
 			semconv.ServiceNamespace(ServiceNamespace),
 		)
-		otelHandler := otelslog.NewHandler("slog")
 
+		// When the OTel log bridge is enabled, route the unified logger through
+		// it so the OTel LoggerProvider/exporter owns schema and trace
+		// correlation (WithHandler bypasses depenlog's console/file handlers).
+		var otelHandler slog.Handler
 		shutdown, err := otelsdk.Configure(
 			context.Background(),
 			otelsdk.WithResource(service),
 			otelsdk.WithLogBridge(func() {
-				handlers = append(handlers, otelHandler)
+				otelHandler = otelslog.NewHandler("slog")
 			}),
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		// handlers = append(handlers)
 		lc.Append(fx.Hook{
 			OnStop: func(ctx context.Context) error {
 				return shutdown(ctx)
 			},
 		})
-	}
 
-	var finalHandler slog.Handler
-	if len(handlers) == 0 {
-		// finalHandler = slog.NewTextHandler(os.Stdout, opts)
-		finalHandler = console(os.Stdout, level)
-	} else if len(handlers) == 1 {
-		finalHandler = handlers[0]
-	} else {
-		finalHandler = MultiHandler(handlers...)
-	}
-
-	logger := slog.New(finalHandler)
-	slog.SetDefault(logger)
-
-	return logger, nil
-}
-
-func parseLogLevel(input string) (level slog.Level) {
-	err := level.UnmarshalText([]byte(input))
-	if err != nil {
-		// default: info
-		level = slog.LevelInfo
-	}
-	return // level
-}
-
-func console(output *os.File, verbose slog.Level) slog.Handler {
-	colorize, _ := strconv.ParseBool(
-		os.Getenv("WBTL_LOG_COLOR"),
-	)
-	if colorize {
-		colorize = isatty.IsTerminal(
-			output.Fd(),
-		)
-	}
-	return sfmt.NewFormatterHandler(
-		// sfmt.FormatByType(func(e *myError) slog.Value {
-		// 	return slog.GroupValue(
-		// 		slog.Int("code", e.code),
-		// 		slog.String("message", e.msg),
-		// 	)
-		// }),
-		// sfmt.ErrorFormatter("error_with_generic_formatter"),
-		// sfmt.FormatByKey("email", func(v slog.Value) slog.Value {
-		// 	return slog.StringValue("***********")
-		// }),
-		// sfmt.FormatByGroupKey([]string{"a-group"}, "hello", func(v slog.Value) slog.Value {
-		// 	return slog.StringValue("eve")
-		// }),
-		// sfmt.FormatByGroup([]string{"hq"}, func(attrs []slog.Attr) slog.Value {
-		// 	return slog.GroupValue(
-		// 		slog.Group(
-		// 			"address",
-		// 			lo.ToAnySlice(attrs)...,
-		// 		),
-		// 	)
-		// }),
-		// sfmt.PIIFormatter("hq"),
-		sfmt.ErrorFormatter("err"),
-		sfmt.ErrorFormatter("error"),
-	)(
-		// slog.NewJSONHandler(os.Stdout, nil),
-		tint.NewHandler(output, &tint.Options{
-			AddSource: false,
-			Level:     verbose.Level(),
-			// ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
-			// 	return attr
-			// },
-			TimeFormat: "Jan 02 15:04:05.000", // time.StampMilli,
-			NoColor:    !colorize,
-		}),
-	)
-}
-
-type multiHandler struct {
-	handlers []slog.Handler
-}
-
-func MultiHandler(handlers ...slog.Handler) slog.Handler {
-	return &multiHandler{handlers: handlers}
-}
-
-func (h *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	for _, hh := range h.handlers {
-		if hh.Enabled(ctx, level) {
-			return true
+		if otelHandler != nil {
+			opts = append(opts, depenlog.WithHandler(otelHandler))
 		}
 	}
-	return false
-}
 
-func (h *multiHandler) Handle(ctx context.Context, r slog.Record) error {
-	for _, hh := range h.handlers {
-		if hh.Enabled(ctx, r.Level) {
-			_ = hh.Handle(ctx, r)
-		}
-	}
-	return nil
-}
+	kit := depenlog.New(dcfg, opts...)
 
-func (h *multiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	newHandlers := make([]slog.Handler, len(h.handlers))
-	for i, hh := range h.handlers {
-		newHandlers[i] = hh.WithAttrs(attrs)
-	}
-	return &multiHandler{handlers: newHandlers}
-}
-
-func (h *multiHandler) WithGroup(name string) slog.Handler {
-	newHandlers := make([]slog.Handler, len(h.handlers))
-	for i, hh := range h.handlers {
-		newHandlers[i] = hh.WithGroup(name)
-	}
-	return &multiHandler{handlers: newHandlers}
+	return slog.Default(), kit, nil
 }
 
 func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_tls.Config, lc fx.Lifecycle) (*grpc_srv.Server, error) {
@@ -250,7 +115,7 @@ func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
 			if err := s.Shutdown(); err != nil {
-				logger.Error(err.Error(), wlog.Err(err))
+				logger.Error(err.Error(), wsemconv.ErrorKey, err)
 				return err
 			}
 			return nil
@@ -355,8 +220,8 @@ func ProvidePubSub(config *config.Config, logger *slog.Logger, runtime fx.Lifecy
 	case "amqp", "rabbitmq":
 		var broker *amqp.Factory
 		broker, err = amqp.NewFactory(
-			pubsubConfig.URL,  // connectionString
-			loggerAdapter,     // logger
+			pubsubConfig.URL, // connectionString
+			loggerAdapter,    // logger
 		)
 		if err != nil {
 			return nil, err
@@ -425,10 +290,12 @@ func ProvideDB(config *config.Config, logger *slog.Logger, runtime fx.Lifecycle)
 	return dbo, err
 }
 
-func ProvideProfiler(config *config.Config, log *slog.Logger) (profiler.Config, logger.Logger) {
+// ProvideProfiler supplies the profiler config. The profiler module consumes
+// logger.Logger from the fx graph, which ProvideLogger now provides.
+func ProvideProfiler(config *config.Config) profiler.Config {
 	return profiler.Config{
 		Addr:                 config.Profiler.Addr,
 		MutexProfileFraction: config.Profiler.MutexFraction,
 		BlockProfileRate:     config.Profiler.BlockRate,
-	}, logger.NewSlog(log)
+	}
 }
