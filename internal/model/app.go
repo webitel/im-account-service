@@ -52,6 +52,7 @@ func NewApplication(input *v1.InputApp) *Application {
 		Account:             nil,                // &impb.Account{},
 		Contacts:            input.GetContacts(),
 		AllowSystemMessages: input.GetAllowSystemMessages(),
+		Type:                AppTypeOrDefault(input.GetType()),
 	}
 	return &Application{
 		opts: config,
@@ -82,7 +83,21 @@ func (app *Application) Proto() *v1.Application {
 }
 
 func ProtoApplication(src *v1.Application) *Application {
-	return &Application{
-		opts: proto.CloneOf(src),
+	opts := proto.CloneOf(src)
+	if opts != nil {
+		// Apps created before the type existed are portals.
+		opts.Type = AppTypeOrDefault(opts.GetType())
 	}
+	return &Application{
+		opts: opts,
+	}
+}
+
+// AppTypeOrDefault returns the given application type, or APP_TYPE_PORTAL when
+// it is unspecified.
+func AppTypeOrDefault(typ v1.AppType) v1.AppType {
+	if typ == v1.AppType_APP_TYPE_UNSPECIFIED {
+		return v1.AppType_APP_TYPE_PORTAL
+	}
+	return typ
 }
