@@ -135,6 +135,8 @@ func (c *Manager) AddContact(ctx context.Context, set *model.Contact) error {
 			Username: cmp.Or(set.Username, set.Name),
 
 			Metadata: contactMdFormProtoV1(set),
+			// Raw OIDC phone_number claim; contact-service normalizes it to E.164.
+			Phone: set.PhoneNumber,
 		},
 	)
 
