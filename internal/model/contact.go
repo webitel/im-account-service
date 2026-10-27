@@ -59,7 +59,7 @@ func (e *ContactId) Equal(x *ContactId) bool {
 		// }
 		// return s1 == s2
 	}
-	if exactNonEmpty(e.Iss, x.Iss) && exactNonEmpty(e.Sub, x.Sub)	{
+	if exactNonEmpty(e.Iss, x.Iss) && exactNonEmpty(e.Sub, x.Sub) {
 		return exactOrEmpty(e.Id, x.Id)
 	}
 	return exactNonEmpty(e.Id, x.Id)
@@ -94,6 +94,10 @@ type Contact struct {
 	// REQUIRED. End-User's full name in displayable form including all name parts,
 	// possibly including titles and suffixes, ordered according to the End-User's locale and preferences.
 	Name string
+	// Name shown to external clients in a chat, instead of [Name]. Engine-owned
+	// (wbt_user.chat_name), so it is taken from the token on every authentication
+	// rather than stored.
+	ChatName string
 	// Preferred Username
 	Username string
 	// Given name(s) or first name(s) of the End-User.
