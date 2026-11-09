@@ -53,10 +53,10 @@ func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 	// err = AppAuthorization(false)(rpc)
 	err = ClientAuthentication{
 		// Hint:      nil, // []string{},
-		Require:   false,
+		Require: false,
 		// GrantType: "",
 	}.Do(rpc)
-	
+
 	if err != nil {
 		// Header specified, but invalid
 		return bearer, err
@@ -127,7 +127,7 @@ func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 	err = DeviceAuthentication{
 		Require: false,
 	}.Do(rpc)
-	
+
 	if err != nil {
 		return bearer, err
 	}
@@ -203,12 +203,14 @@ func webitelPermissions(grants []*adpb.Permission) []string {
 	if len(grants) == 0 {
 		return nil
 	}
+
 	ids := make([]string, 0, len(grants))
 	for _, grant := range grants {
 		if id := grant.GetId(); id != "" {
 			ids = append(ids, id)
 		}
 	}
+
 	return ids
 }
 
