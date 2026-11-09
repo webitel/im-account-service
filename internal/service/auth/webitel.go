@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	webitel "github.com/webitel/im-account-service/internal/client/webitel/auth"
+	adpb "github.com/webitel/im-account-service/internal/client/webitel/proto/gen/auth"
 	"github.com/webitel/im-account-service/internal/model"
 	"github.com/webitel/im-account-service/internal/service"
 )
@@ -52,10 +53,10 @@ func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 	// err = AppAuthorization(false)(rpc)
 	err = ClientAuthentication{
 		// Hint:      nil, // []string{},
-		Require:   false,
+		Require: false,
 		// GrantType: "",
 	}.Do(rpc)
-	
+
 	if err != nil {
 		// Header specified, but invalid
 		return bearer, err
@@ -119,13 +120,14 @@ func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 
 	// Authorize Webitel end-User
 	rpc.Contact = endUser
+	rpc.Permissions = webitelPermissions(debug.GetPermissions())
 
 	// Find session for ( device + contact )
 	// err = DeviceAuthorization(false)(rpc)
 	err = DeviceAuthentication{
 		Require: false,
 	}.Do(rpc)
-	
+
 	if err != nil {
 		return bearer, err
 	}
@@ -195,6 +197,21 @@ func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 	rpc.Session = session
 
 	return bearer, nil
+}
+
+func webitelPermissions(grants []*adpb.Permission) []string {
+	if len(grants) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(grants))
+	for _, grant := range grants {
+		if id := grant.GetId(); id != "" {
+			ids = append(ids, id)
+		}
+	}
+
+	return ids
 }
 
 // String policy name

@@ -606,7 +606,8 @@ func netIPstring(ip net.IP) string {
 func currentAuthorizationProtoV1(rpc *service.Context) (*v1.Authorization, error) {
 
 	authN := &v1.Authorization{
-		Current: true,
+		Current:     true,
+		Permissions: rpc.Permissions,
 	}
 
 	session := rpc.Session
