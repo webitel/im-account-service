@@ -40,9 +40,10 @@ type Context struct {
 	// Client *ad.Application // Third-Party Application VIA
 	// Native *NativeService  // Native ( internal ) service ( client ) authentication
 
-	Auth    any                  // [A]uthenticated [C]redentials [R]ule ; JWT | session | external ..
-	Contact *model.Contact       // Authenticated end-User
-	Session *model.Authorization // Authorized session
+	Auth        any                  // [A]uthenticated [C]redentials [R]ule ; JWT | session | external ..
+	Contact     *model.Contact       // Authenticated end-User
+	Session     *model.Authorization // Authorized session
+	Permissions []string             // Webitel permission ids of the authenticated end-User
 	// Business ds.Business // Business (domain) Account
 
 	// // Operation (generated) Updates
