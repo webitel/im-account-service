@@ -290,6 +290,8 @@ github.com/valyala/fastjson v1.6.7 h1:ZE4tRy0CIkh+qDc5McjatheGX2czdn8slQjomexVpB
 github.com/valyala/fastjson v1.6.7/go.mod h1:CLCAqky6SMuOcxStkYQvblddUtoRxhYMGLrsQns1aXY=
 github.com/webitel/webitel-go-kit/appconfig v0.0.0-20260602143553-df89d5e34680 h1:gEDI7cQJKnncpniuQZSmyYrjEQ2YK0Pu3SOd8MQu7Ww=
 github.com/webitel/webitel-go-kit/appconfig v0.0.0-20260602143553-df89d5e34680/go.mod h1:NUsijzMO1zB681559ejZHIcnAkeG7suicCgOiukaNMg=
+github.com/webitel/webitel-go-kit/appconfig v0.1.1-0.20261110114623-1cd41cd688ca h1:MVqYOcDixhZ4iZlR2Qak3ZqmCfEhca6qu2vSIjGLydc=
+github.com/webitel/webitel-go-kit/appconfig v0.1.1-0.20261110114623-1cd41cd688ca/go.mod h1:NUsijzMO1zB681559ejZHIcnAkeG7suicCgOiukaNMg=
 github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260602143553-df89d5e34680 h1:JVG8Ds7JEf+9vvR1RfAH1LmQdE+5pcoXo4X9rNj6+KU=
 github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260602143553-df89d5e34680/go.mod h1:IhUZHd7EYD1pCoX9dNNlkpF+/c3Q6ODgBcluGDMbJrU=
 github.com/webitel/webitel-go-kit/infra/otel v0.0.0-20251219114945-08628fe6d5da h1:5jwcqAeHMO4vmM2p3EZUzaLxB+94J5hJP8MDESc32bE=

@@ -125,4 +125,4 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require github.com/webitel/webitel-go-kit/appconfig v0.0.0-20260602143553-df89d5e34680
+require github.com/webitel/webitel-go-kit/appconfig v0.1.1-0.20261110114623-1cd41cd688ca
