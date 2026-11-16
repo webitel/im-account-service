@@ -29,7 +29,8 @@ func (spec *Epochtime) TimeEpoch() (since time.Time) {
 	if spec != nil && since.Before(spec.since) {
 		since = spec.since
 	}
-	return // since
+
+	return since // since
 }
 
 func (spec *Epochtime) Precision() (prec time.Duration) {
@@ -37,7 +38,8 @@ func (spec *Epochtime) Precision() (prec time.Duration) {
 	if spec != nil && spec.prec > 0 {
 		prec, _ = precision(spec.prec)
 	}
-	return // prec
+
+	return prec // prec
 }
 
 func (spec *Epochtime) Location() (loc *time.Location) {
@@ -45,7 +47,8 @@ func (spec *Epochtime) Location() (loc *time.Location) {
 	if spec != nil && spec.tloc != nil {
 		loc = spec.tloc
 	}
-	return // loc
+
+	return loc // loc
 }
 
 type EpochtimeOption func(spec *Epochtime)
@@ -70,6 +73,7 @@ func TimeLocation(loc *time.Location) EpochtimeOption {
 
 func precision(as time.Duration) (time.Duration, bool) {
 	ok := true
+
 	switch as {
 	case time.Second:
 	case time.Millisecond:
@@ -78,6 +82,7 @@ func precision(as time.Duration) (time.Duration, bool) {
 	default:
 		as, ok = time.Second, false
 	}
+
 	return as, ok
 }
 
@@ -85,7 +90,8 @@ func NewEpochtime(opts ...EpochtimeOption) (spec Epochtime) {
 	for _, option := range opts {
 		option(&spec)
 	}
-	return
+
+	return spec
 }
 
 // Time converts given [time.Time] to [epochtime]. Timestamp[precision]
@@ -93,6 +99,7 @@ func (spec *Epochtime) Time(date time.Time) (tsec int64) {
 	if date.IsZero() || date.Before(spec.TimeEpoch()) {
 		return 0
 	}
+
 	switch spec.Precision() {
 	case time.Second, 0: // default: timestamp
 		return date.Unix() // seconds
@@ -105,6 +112,7 @@ func (spec *Epochtime) Time(date time.Time) (tsec int64) {
 		// default:
 		// 	panic(fmt.Errorf("epochtime: invalid precision %s", spec.Precision))
 	}
+
 	return 0
 }
 
@@ -112,9 +120,10 @@ func (spec *Epochtime) Time(date time.Time) (tsec int64) {
 func (spec *Epochtime) Date(tsec int64) (date time.Time) {
 	if tsec > 0 {
 		precision := spec.Precision()
-		epochtimeToUnix := (int64)(time.Second / precision)                             // time.Second(1e9) / time.Millicesond(1e6) = 1e3
-		date = time.Unix(tsec/epochtimeToUnix, tsec%epochtimeToUnix*(int64)(precision)) // *1e9) // *time.Second
+		epochtimeToUnix := int64(time.Second / precision)                             // time.Second(1e9) / time.Millicesond(1e6) = 1e3
+		date = time.Unix(tsec/epochtimeToUnix, tsec%epochtimeToUnix*int64(precision)) // *1e9) // *time.Second
 		date = date.In(spec.Location())
 	}
-	return // date?
+
+	return date // date?
 }

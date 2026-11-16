@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	ua "github.com/mileusna/useragent"
-	v1 "github.com/webitel/im-account-service/proto/gen/im/service/auth/v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
+
+	v1 "github.com/webitel/im-account-service/proto/gen/im/service/auth/v1"
 )
 
 // Device (Client) Endpoint
@@ -33,7 +34,8 @@ func (peer *Device) IP() (ip net.IP) {
 	if peer != nil {
 		ip = AddrIP(peer.Addr)
 	}
-	return // ip | nil
+
+	return ip // ip | nil
 }
 
 // Hash of sensitive data
@@ -54,6 +56,7 @@ func (peer *Device) Hash() []byte {
 			fd |= (1 << x)
 		}
 	}
+
 	hash := md5.New()
 	hash.Write([]byte(ua.Device))
 	hash.Write([]byte{fd})
@@ -61,6 +64,7 @@ func (peer *Device) Hash() []byte {
 	hash.Write([]byte(ua.OS))
 	hash.Write([]byte{'|'})
 	hash.Write([]byte(ua.Name))
+
 	return hash.Sum(nil)
 }
 
@@ -79,6 +83,7 @@ func (peer *Device) Type() string {
 	} else if uainfo.Bot {
 		typeOf = "bot"
 	}
+
 	return typeOf
 }
 
@@ -89,6 +94,7 @@ func (peer *Device) FromAddr() (isNew bool) {
 	if len(ip) == 0 {
 		return false
 	}
+
 	var (
 		// ever used []addr
 		data = peer.From
@@ -97,6 +103,7 @@ func (peer *Device) FromAddr() (isNew bool) {
 	for ; e < n && !ip.Equal(data[e]); e++ {
 		// lookup: net.IP address duplicate
 	}
+
 	if isNew = (e == n); isNew {
 		// NEW ; NOT FOUND !
 		if n > 0 {
@@ -117,8 +124,10 @@ func (peer *Device) FromAddr() (isNew bool) {
 			data[0] = ip // peer.Addr
 		}
 	}
+
 	peer.From = data
-	return // isNew
+
+	return isNew // isNew
 }
 
 // Remote (Client) address [FROM]
@@ -149,6 +158,7 @@ func RemoteAddr(ctx context.Context) (from net.Addr) {
 			if peer != nil {
 				return peer.Addr
 			}
+
 			return nil
 		},
 	}
@@ -164,15 +174,14 @@ func RemoteAddr(ctx context.Context) (from net.Addr) {
 		next++
 	}
 
-	return // from
+	return from // from
 }
 
 // Grab [User-Agent] as a remote client connection [Device] info
 func GetDeviceAuthorization(ctx context.Context) (peer Device, ok bool) {
-
 	h2, _ := metadata.FromIncomingContext(ctx)
 	if len(h2) == 0 {
-		return // noop, false
+		return peer, ok // noop, false
 	}
 
 	// :authority:      dev.webitel.com
@@ -215,7 +224,8 @@ func GetDeviceAuthorization(ctx context.Context) (peer Device, ok bool) {
 	// if service, id, ok := Split from.Sub != "" {}
 
 	ok = (ok || peer.Addr != nil)
-	return // from, ok
+
+	return peer, ok // from, ok
 }
 
 // form session name of client endpoint device info
@@ -227,20 +237,27 @@ func SessionName(peer *Device) (name string) {
 	defer func() {
 		name = form.String()
 	}()
+
 	if info.Device != "" {
 		form.WriteString(info.Device) // Dev
+
 		form.WriteString(" (")
 		defer form.WriteString(")")
 	}
+
 	form.WriteString(info.Name) // App
+
 	if info.Version != "" {
 		form.WriteString("/" + info.Version) // Ver
 	}
+
 	if info.OS != "" {
 		form.WriteString("; " + info.OS)
+
 		if info.OSVersion != "" {
 			form.WriteString(" " + info.OSVersion)
 		}
 	}
-	return // name = form.String()
+
+	return name // name = form.String()
 }

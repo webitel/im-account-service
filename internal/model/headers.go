@@ -69,6 +69,7 @@ func Coalesce[T comparable](vs ...T) T {
 			return v
 		}
 	}
+
 	return zero
 }
 
@@ -79,14 +80,17 @@ func CoalesceLast[T comparable](vs ...T) T {
 			return vs[n]
 		}
 	}
+
 	return zero
 }
 
 func GetHeaderH1(h1 http.Header, key string) string {
 	if h1 != nil {
 		key = textproto.CanonicalMIMEHeaderKey(key)
+
 		return CoalesceLast(h1[key]...)
 	}
+
 	return ""
 }
 
@@ -94,6 +98,7 @@ func GetHeaderH2(h2 metadata.MD, key string) string {
 	if h2 != nil {
 		return CoalesceLast(h2.Get(key)...)
 	}
+
 	return ""
 }
 
@@ -131,6 +136,7 @@ func ParseForwardedFor(vs []string) net.Addr {
 	if len(input) == 0 {
 		return nil // NONE
 	}
+
 	vs = strings.SplitN(input, ",", 2)
 	input = strings.TrimSpace(vs[0])
 	// MUST: addr

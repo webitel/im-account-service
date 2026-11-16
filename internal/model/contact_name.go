@@ -29,6 +29,7 @@ func (cn *ContactName) Parts() []string {
 	if cn == nil {
 		return nil
 	}
+
 	parts := []string{
 		cn.GivenName,
 		cn.MiddleName,
@@ -41,11 +42,14 @@ func (cn *ContactName) Parts() []string {
 		part = regexpWSPlus.ReplaceAllString(part, string(SPACE))
 		if part != "" {
 			parts[e] = part // normalized
+
 			continue
 		}
+
 		parts = append(parts[:e], parts[e+1:]...)
 		e-- // removed
 	}
+
 	return parts
 }
 
@@ -54,6 +58,7 @@ func (cn ContactName) LastName() string {
 	if n := len(parts); n > 1 {
 		return parts[n-1]
 	}
+
 	return ""
 }
 
@@ -62,6 +67,7 @@ func (cn ContactName) FirstName() string {
 	if n := len(parts); n > 0 {
 		return CommonName(parts[:n-1]...)
 	}
+
 	return cn.CommonName
 }
 
@@ -69,9 +75,11 @@ func (cn *ContactName) IsValid() bool {
 	if cn == nil {
 		return false
 	}
+
 	if cn.CommonName != "" {
 		return true
 	}
+
 	return len(cn.Parts()) > 0
 }
 
@@ -84,8 +92,11 @@ var regexpWSPlus = regexp.MustCompile(`\s+`)
 func CommonName(parts ...string) string {
 	var form strings.Builder
 	defer form.Reset()
+
 	const SPACE = string(SPACE)
+
 	var sep string // separator
+
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		// replace WSP sequence with a single SP
@@ -95,8 +106,10 @@ func CommonName(parts ...string) string {
 		if part == "" {
 			continue
 		}
+
 		form.WriteString(sep)
 		form.WriteString(part)
+
 		sep = SPACE
 	}
 	// generated
@@ -113,5 +126,6 @@ func (cn *ContactName) String() string {
 			cn.FamilyName, // lastName
 		)
 	}
+
 	return cn.CommonName
 }

@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	v1 "github.com/webitel/im-account-service/proto/gen/im/service/admin/v1"
 	"google.golang.org/protobuf/proto"
+
+	v1 "github.com/webitel/im-account-service/proto/gen/im/service/admin/v1"
 )
 
 type Mutation struct {
@@ -52,8 +53,10 @@ func NewApplication(input *v1.InputApp) *Application {
 		Account:             nil,                // &impb.Account{},
 		Contacts:            input.GetContacts(),
 		AllowSystemMessages: input.GetAllowSystemMessages(),
+		AllowContacts:       normalizeContactAllowList(input.GetAllowContacts()),
 		Type:                AppTypeOrDefault(input.GetType()),
 	}
+
 	return &Application{
 		opts: config,
 	}
@@ -88,6 +91,7 @@ func ProtoApplication(src *v1.Application) *Application {
 		// Apps created before the type existed are portals.
 		opts.Type = AppTypeOrDefault(opts.GetType())
 	}
+
 	return &Application{
 		opts: opts,
 	}
@@ -99,5 +103,6 @@ func AppTypeOrDefault(typ v1.AppType) v1.AppType {
 	if typ == v1.AppType_APP_TYPE_UNSPECIFIED {
 		return v1.AppType_APP_TYPE_PORTAL
 	}
+
 	return typ
 }

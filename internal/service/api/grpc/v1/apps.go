@@ -68,9 +68,10 @@ func (c *ApplicationService) CreateApp(ctx context.Context, req *impb.CreateAppR
 	// return c.UnimplementedApplicationsServer.CreateApp(ctx, req)
 
 	input := req.GetApp()
+	if err := model.ValidateInputApp(input); err != nil {
+		return nil, err
+	}
 	app := model.NewApplication(input)
-
-	// TODO: Validation
 
 	app, err := c.store.Create(
 		store.CreateAppRequest{
@@ -86,6 +87,7 @@ func (c *ApplicationService) CreateApp(ctx context.Context, req *impb.CreateAppR
 	return app.Proto(), nil
 }
 
+// NOTE: when implemented, must call model.ValidateInputApp(req.GetApp()) before persisting.
 func (c *ApplicationService) UpdateApp(ctx context.Context, req *impb.UpdateAppRequest) (*impb.Application, error) {
 	return c.UnimplementedApplicationsServer.UpdateApp(ctx, req)
 }

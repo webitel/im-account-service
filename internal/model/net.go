@@ -18,5 +18,6 @@ func AddrIP(addr net.Addr) (ip net.IP) {
 			// ip = addr.String()
 		}
 	}
-	return // ip | nil
+
+	return ip // ip | nil
 }

@@ -36,14 +36,17 @@ func Get[T any](list *Dataset[T], err error) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if list == nil {
 		// Not Found
 		return nil, nil
 	}
+
 	size := len(list.Data)
 	if list.Next != nil || size > 1 {
 		return nil, ErrTooManyRecords
 	}
+
 	var row *T
 	if size == 1 {
 		row = list.Data[0]
