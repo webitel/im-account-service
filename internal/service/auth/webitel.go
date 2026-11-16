@@ -79,6 +79,7 @@ func (x WebitelAuthentication) Authenticate(rpc *service.Context, hint bool) (ac
 		App:      "", // none ; default: domain.(app)
 		Type:     contactProto,
 		Name:     cmp.Or(debug.Name, debug.Username),
+		ChatName: debug.ChatName,
 		Username: debug.Username,
 		// GivenName:           "",
 		// MiddleName:          "",
