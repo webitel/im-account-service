@@ -31,7 +31,6 @@ import (
 	"github.com/webitel/webitel-go-kit/infra/discovery"
 	_ "github.com/webitel/webitel-go-kit/infra/discovery/consul"
 	otelsdk "github.com/webitel/webitel-go-kit/infra/otel/sdk"
-	"github.com/webitel/wlog"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.38.0"
@@ -250,7 +249,7 @@ func ProvideGrpcServer(config *config.Config, logger *slog.Logger, creds *infra_
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
 			if err := s.Shutdown(); err != nil {
-				logger.Error(err.Error(), wlog.Err(err))
+				logger.Error("failed to shutdown gRPC server", slog.Any("error", err))
 				return err
 			}
 			return nil
