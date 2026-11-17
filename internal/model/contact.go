@@ -22,6 +22,7 @@ func (e *ContactId) Equal(x *ContactId) bool {
 	if e == nil || x == nil {
 		return false
 	}
+
 	if e == x {
 		return e.IsValid()
 	}
@@ -33,6 +34,7 @@ func (e *ContactId) Equal(x *ContactId) bool {
 	if e.Dc > 0 && x.Dc > 0 && e.Dc != x.Dc {
 		return false
 	}
+
 	mismatch := func(s, t string) bool {
 		return s != "" && t != "" && s != t
 	}
@@ -52,6 +54,7 @@ func (e *ContactId) Equal(x *ContactId) bool {
 	exactOrEmpty := func(s1, s2 string) bool {
 		return s1 == s2 || s1 == "" || s2 == ""
 	}
+
 	exactNonEmpty := func(s1, s2 string) bool {
 		return s1 != "" && s1 == s2
 		// if s1 == "" || s2 == "" {
@@ -62,6 +65,7 @@ func (e *ContactId) Equal(x *ContactId) bool {
 	if exactNonEmpty(e.Iss, x.Iss) && exactNonEmpty(e.Sub, x.Sub) {
 		return exactOrEmpty(e.Id, x.Id)
 	}
+
 	return exactNonEmpty(e.Id, x.Id)
 }
 

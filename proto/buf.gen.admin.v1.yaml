@@ -8,6 +8,8 @@ managed:
       value: github.com/webitel/protos/im/service/admin/v1;adminpb
   disable:
     - file_option: go_package
+      module: buf.build/bufbuild/protovalidate
+    - file_option: go_package
       module: buf.build/googleapis/googleapis
 
 plugins:

@@ -14,24 +14,24 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jws"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/webitel/im-account-service/internal/errors"
 	"github.com/webitel/im-account-service/internal/service/jwks"
 	im_auth "github.com/webitel/im-account-service/proto/gen/im/service/auth/v1"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type AppClients struct {
 	app *Application
 	// prepared
-	ua []*regexp.Regexp
+	ua  []*regexp.Regexp
 	web []*regexp.Regexp
 	net []netip.Prefix
 	jwt *JWTAuthentication
 }
 
 func (app *Application) Clients() AppClients {
-
 	app.mx.Lock()
 	defer app.mx.Unlock()
 
@@ -51,7 +51,7 @@ func (app *Application) Clients() AppClients {
 	}
 
 	// constraint: [U]ser-[A]gent
-	if n := len(opts.Ua); n > 0 {
+	if n := len(opts.GetUa()); n > 0 {
 		// values := make([]*regexp.Regexp, 0, n)
 		// for _, input := range opts.Ua {
 		// 	pattern, err := regexp.Compile(input)
@@ -72,7 +72,8 @@ func (app *Application) Clients() AppClients {
 	// constraint: net.cidr
 	if n := len(opts.GetNet().GetCidr()); n > 0 {
 		values := make([]netip.Prefix, 0, n)
-		for _, input := range opts.Net.Cidr {
+
+		for _, input := range opts.GetNet().GetCidr() {
 			cidr, err := netip.ParsePrefix(input)
 			if err != nil {
 				// FIXME: just ignore ?
@@ -80,10 +81,13 @@ func (app *Application) Clients() AppClients {
 					slog.LevelWarn, "app.clients.net.cidr",
 					"cidr", input, "err", err.Error(),
 				)
+
 				continue
 			}
+
 			values = append(values, cidr)
 		}
+
 		if len(values) > 0 {
 			scheme.net = values
 		}
@@ -128,7 +132,7 @@ func (c AppClients) Authorize(client *Device) error {
 	_ = c.app.ClientId()
 
 	ok := true // default: NO constraints
-	
+
 	// [User-Agent] constraints ..
 	UA := client.App.String // client != nil
 	for _, pattern := range c.ua {
@@ -145,6 +149,7 @@ func (c AppClients) Authorize(client *Device) error {
 
 	// [net] constraints ..
 	ok = true
+
 	IP, _ := netip.AddrFromSlice([]byte(client.IP()))
 	for _, subnet := range c.net {
 		if ok = subnet.Contains(IP); ok {
@@ -160,6 +165,7 @@ func (c AppClients) Authorize(client *Device) error {
 
 	// [web] constraints ..
 	ok = true
+
 	Origin := []byte("") // TODO !!!!!!!
 	for _, pattern := range c.web {
 		if ok = pattern.Match(Origin); ok {
@@ -180,10 +186,9 @@ func (c AppClients) Authorize(client *Device) error {
 // Verifies given [identity] as Contact profile
 // is satisfied with [app.oauth.iDp] constraints
 func (c AppClients) NewContact(identity *Contact) error {
-
 	// MUST
 	_ = c.app.ClientId()
-	
+
 	// Validate [idToken.Sub] subject identifier
 	if identity.Sub == "" {
 		return errors.BadRequest(
@@ -192,7 +197,6 @@ func (c AppClients) NewContact(identity *Contact) error {
 		)
 	}
 	// [TODO]: .sub ~= /[A-Za-z0-9\-\.]+/ ; BAD_SUBJECT
-
 
 	// Validate [idToken.Iss] issuer identifier
 	issuer := identity.Iss
@@ -271,13 +275,12 @@ func (c AppClients) JWTAuthentication() *JWTAuthentication {
 type JWTAuthentication struct {
 	app *Application
 	// opts im_admin.JwtIdentity // cached config
-	keyset jwk.Set // prepared JWKs keyset
+	keyset jwk.Set   // prepared JWKs keyset
 	claims claimsMap // map [identity.field] = jwt.(payload).claim[ "|" .. ] ;
-	err error // init: (critical) error
+	err    error     // init: (critical) error
 }
 
 func newJWTAuthentication(app *Application) (scheme *JWTAuthentication, err error) {
-
 	opts := app.opts.GetClients().GetJwt()
 	if !opts.GetEnabled() { // opts == nil {
 		// No configuration | Disabled !
@@ -285,7 +288,7 @@ func newJWTAuthentication(app *Application) (scheme *JWTAuthentication, err erro
 	}
 
 	scheme = &JWTAuthentication{
-		app: app, // app reference
+		app:    app, // app reference
 		claims: buildClaimsMap(opts.GetClaims()),
 	}
 	// cache (running) configuration
@@ -297,8 +300,8 @@ func newJWTAuthentication(app *Application) (scheme *JWTAuthentication, err erro
 type claimsMap map[string][]string
 
 func buildClaimsMap(input map[string]string) claimsMap {
-
 	const fallbackSep = "|"
+
 	config := make(claimsMap, len(input))
 
 	for fd, src := range input {
@@ -312,6 +315,7 @@ func buildClaimsMap(input map[string]string) claimsMap {
 				claims = append(claims[0:e], claims[e+1:]...)
 				e--
 				n--
+
 				continue
 			}
 			// skip ; duplicate..
@@ -319,10 +323,11 @@ func buildClaimsMap(input map[string]string) claimsMap {
 				claims = append(claims[0:e], claims[e+1:]...)
 				e--
 				n--
+
 				continue
 			}
 		}
-		
+
 		if len(claims) == 0 {
 			if fd == "" {
 				// skip ; has no affect
@@ -338,6 +343,7 @@ func buildClaimsMap(input map[string]string) claimsMap {
 	// normalize: split [nokey] claims
 	if claims, ok := config[""]; ok {
 		delete(config, "")
+
 		for _, att := range claims {
 			if _, ok = config[att]; ok {
 				continue // already defined
@@ -352,7 +358,6 @@ func buildClaimsMap(input map[string]string) claimsMap {
 
 // GetJWKs loads [J]son[W]eb[K]eys used to verify JWT token signature & prove issuer trust.
 func (c *JWTAuthentication) GetJWKs(ctx context.Context) (keyset jwk.Set, err error) {
-
 	tx := &c.app.mx
 
 	tx.Lock()
@@ -388,9 +393,11 @@ func (c *JWTAuthentication) GetJWKs(ctx context.Context) (keyset jwk.Set, err er
 		)
 		if err != nil {
 			re := err
+
 			type wrapError interface {
 				Unwrap() error
 			}
+
 			e, _ := re.(wrapError)
 			for e != nil {
 				re = e.Unwrap()
@@ -402,11 +409,9 @@ func (c *JWTAuthentication) GetJWKs(ctx context.Context) (keyset jwk.Set, err er
 			)
 		}
 	} else if src := opts.GetJwks(); len(src) > 0 {
-		keyset, err = jwk.Parse(src,
-			// jwk.WithPEM(false),
-			// jwk.WithTypedField("", nil),
-			// jwk.WithIgnoreParseError(false),
-		)
+		keyset, err = jwk.Parse(src) // jwk.WithPEM(false),
+		// jwk.WithTypedField("", nil),
+		// jwk.WithIgnoreParseError(false),
 		if err != nil {
 			keyset = nil
 			err = errors.BadGateway(
@@ -430,6 +435,7 @@ func (c *JWTAuthentication) GetJWKs(ctx context.Context) (keyset jwk.Set, err er
 	}
 	// +[ OK ]
 	c.keyset = keyset
+
 	return keyset, nil
 }
 
@@ -440,6 +446,7 @@ func (c *JWTAuthentication) GetContact(ctx context.Context, date time.Time, bear
 	if err != nil {
 		return token, nil, err
 	}
+
 	identity, err := c.newIdentity(idtoken)
 	if err != nil {
 		return token, nil, err
@@ -454,7 +461,6 @@ func (c *JWTAuthentication) GetContact(ctx context.Context, date time.Time, bear
 }
 
 func (c *JWTAuthentication) getIdentity(ctx context.Context, date time.Time, bearer string) (token jwt.Token, idtoken *im_auth.Identity, err error) {
-
 	keyset, err := c.GetJWKs(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -488,19 +494,18 @@ func (c *JWTAuthentication) getIdentity(ctx context.Context, date time.Time, bea
 		// 		// return nil
 		// 	},
 		// )),
-    // jwt.WithCookie(v **http.Cookie) ParseOption
-    // jwt.WithCookieKey(v string) ParseOption
-    // jwt.WithFormKey(v string) ParseOption
-    // jwt.WithHeaderKey(v string) ParseOption
-    // jwt.WithKeyProvider(v jws.KeyProvider) ParseOption
-    // jwt.WithKeySet(set jwk.Set, options ...any) ParseOption
-    // jwt.WithPedantic(v bool) ParseOption
-    // jwt.WithToken(v Token) ParseOption
-    // jwt.WithTypedClaim(name string, object any) ParseOption
-    // jwt.WithValidate(v bool) ParseOption
-    // jwt.WithVerify(v bool) ParseOption
-    // jwt.WithVerifyAuto(f jwk.Fetcher, options ...jwk.FetchOption) ParseOption
-
+		// jwt.WithCookie(v **http.Cookie) ParseOption
+		// jwt.WithCookieKey(v string) ParseOption
+		// jwt.WithFormKey(v string) ParseOption
+		// jwt.WithHeaderKey(v string) ParseOption
+		// jwt.WithKeyProvider(v jws.KeyProvider) ParseOption
+		// jwt.WithKeySet(set jwk.Set, options ...any) ParseOption
+		// jwt.WithPedantic(v bool) ParseOption
+		// jwt.WithToken(v Token) ParseOption
+		// jwt.WithTypedClaim(name string, object any) ParseOption
+		// jwt.WithValidate(v bool) ParseOption
+		// jwt.WithVerify(v bool) ParseOption
+		// jwt.WithVerifyAuto(f jwk.Fetcher, options ...jwk.FetchOption) ParseOption
 
 		jwt.WithValidate(true),
 
@@ -527,22 +532,21 @@ func (c *JWTAuthentication) getIdentity(ctx context.Context, date time.Time, bea
 		// 	},
 		// )),
 
-    // jwt.WithAcceptableSkew(v time.Duration) ValidateOption
-    // jwt.WithAudience(s string) ValidateOption
-    // jwt.WithClaimValue(name string, v any) ValidateOption
-    // jwt.WithClock(v Clock) ValidateOption
-    // jwt.WithContext(v context.Context) ValidateOption
-    // jwt.WithIssuer(s string) ValidateOption
-    // jwt.WithJwtID(s string) ValidateOption
-    // jwt.WithMaxDelta(dur time.Duration, c1, c2 string) ValidateOption
-    // jwt.WithMinDelta(dur time.Duration, c1, c2 string) ValidateOption
-    // jwt.WithRequiredClaim(name string) ValidateOption
-    // jwt.WithResetValidators(v bool) ValidateOption
-    // jwt.WithSubject(s string) ValidateOption
-    // jwt.WithValidator(v Validator) ValidateOption
+		// jwt.WithAcceptableSkew(v time.Duration) ValidateOption
+		// jwt.WithAudience(s string) ValidateOption
+		// jwt.WithClaimValue(name string, v any) ValidateOption
+		// jwt.WithClock(v Clock) ValidateOption
+		// jwt.WithContext(v context.Context) ValidateOption
+		// jwt.WithIssuer(s string) ValidateOption
+		// jwt.WithJwtID(s string) ValidateOption
+		// jwt.WithMaxDelta(dur time.Duration, c1, c2 string) ValidateOption
+		// jwt.WithMinDelta(dur time.Duration, c1, c2 string) ValidateOption
+		// jwt.WithRequiredClaim(name string) ValidateOption
+		// jwt.WithResetValidators(v bool) ValidateOption
+		// jwt.WithSubject(s string) ValidateOption
+		// jwt.WithValidator(v Validator) ValidateOption
 
 	)
-
 	if err != nil {
 		// Invalid JWT claims !
 		return token, nil, err
@@ -550,63 +554,65 @@ func (c *JWTAuthentication) getIdentity(ctx context.Context, date time.Time, bea
 
 	// Build (Contact) from Identity
 	idtoken, _ = c.claims.JwtIdentity(token)
+
 	return token, idtoken, err
 }
 
 // Verifies given [idToken] as Contact profile
 // is satisfied with [c.contacts.auth] constraints
 func (c *JWTAuthentication) newIdentity(idtoken *im_auth.Identity) (profile *Contact, _ error) {
-	
 	// early binding
-	_ = idtoken.Iss
-	
+	_ = idtoken.GetIss()
+
 	app := c.app
+
 	return &Contact{
 		Id:                  "", // unknown yet
 		Dc:                  app.GetDc(),
 		App:                 app.ClientId(),
-		Iss:                 idtoken.Iss,
-		Sub:                 idtoken.Sub,
-		Type:                "",  // unknown yet
-		Name:                idtoken.Name,
-		GivenName:           idtoken.GivenName,
-		MiddleName:          idtoken.MiddleName,
-		FamilyName:          idtoken.FamilyName,
+		Iss:                 idtoken.GetIss(),
+		Sub:                 idtoken.GetSub(),
+		Type:                "", // unknown yet
+		Name:                idtoken.GetName(),
+		GivenName:           idtoken.GetGivenName(),
+		MiddleName:          idtoken.GetMiddleName(),
+		FamilyName:          idtoken.GetFamilyName(),
 		Username:            "", // idtoken.PreferredUsername,
-		Birthdate:           idtoken.Birthdate,
-		Zoneinfo:            idtoken.Zoneinfo,
-		Profile:             idtoken.Profile,
-		Picture:             idtoken.Picture,
-		Gender:              idtoken.Gender,
-		Locale:              idtoken.Locale,
-		Email:               idtoken.Email,
-		EmailVerified:       idtoken.EmailVerified,
-		PhoneNumber:         idtoken.PhoneNumber,
-		PhoneNumberVerified: idtoken.PhoneNumberVerified,
-		Metadata:            idtoken.Metadata.AsMap(), // map[string]any{},
+		Birthdate:           idtoken.GetBirthdate(),
+		Zoneinfo:            idtoken.GetZoneinfo(),
+		Profile:             idtoken.GetProfile(),
+		Picture:             idtoken.GetPicture(),
+		Gender:              idtoken.GetGender(),
+		Locale:              idtoken.GetLocale(),
+		Email:               idtoken.GetEmail(),
+		EmailVerified:       idtoken.GetEmailVerified(),
+		PhoneNumber:         idtoken.GetPhoneNumber(),
+		PhoneNumberVerified: idtoken.GetPhoneNumberVerified(),
+		Metadata:            idtoken.GetMetadata().AsMap(), // map[string]any{},
 		// CreatedAt:           time.Time{},
 		// UpdatedAt:           &time.Time{},
 		// DeletedAt:           &time.Time{},
 	}, nil
 }
 
-
 // JwtIdentity builds [auth.Identity] from given [jwt.Token] payload
 func (x claimsMap) JwtIdentity(token jwt.Token) (idtoken *im_auth.Identity, _ error) {
-
 	claimValue := func(claim string) (value any, ok bool) {
 		_, ok = token.Get(claim, &value), token.Has(claim)
-		return // value
+
+		return value, ok // value
 	}
-	
+
 	claimString := func(claim string) (value string) {
 		_ = token.Get(claim, &value)
-		return // value
+
+		return value // value
 	}
 
 	claimBoolean := func(claim string) (value bool) {
 		_ = token.Get(claim, &value)
-		return // value
+
+		return value // value
 	}
 
 	// standard claims first ..
@@ -631,16 +637,18 @@ func (x claimsMap) JwtIdentity(token jwt.Token) (idtoken *im_auth.Identity, _ er
 	}
 
 	var (
-		fd protoreflect.FieldDescriptor
-		rdst = idtoken.ProtoReflect()
+		fd     protoreflect.FieldDescriptor
+		rdst   = idtoken.ProtoReflect()
 		fields = rdst.Descriptor().Fields()
 
 		metadata = make(map[string]any)
 	)
+
 	for att, claims := range x {
 		for _, claim := range claims {
 			// case: { "scope": "" } ; TODO: save metadata["scope"] value if provided
 			claim = cmp.Or(claim, att)
+
 			value, ok := claimValue(claim)
 			if !ok {
 				// not found !
@@ -659,6 +667,7 @@ func (x claimsMap) JwtIdentity(token jwt.Token) (idtoken *im_auth.Identity, _ er
 			default:
 				fd = fields.ByTextName(att)
 			}
+
 			if fd == nil {
 				// set to .metadata value
 				if strings.EqualFold(att, "metadata") {
@@ -666,9 +675,12 @@ func (x claimsMap) JwtIdentity(token jwt.Token) (idtoken *im_auth.Identity, _ er
 					// case: {"metadata":"given_name|name"}
 					att = claim
 				}
+
 				metadata[att] = value
+
 				break // fallback iteration ; claim value found !
 			}
+
 			rdst.Set(
 				fd, protoreflect.ValueOf(value),
 			)
@@ -686,17 +698,20 @@ func (x claimsMap) JwtIdentity(token jwt.Token) (idtoken *im_auth.Identity, _ er
 				{
 					if rv.Type().Elem().Kind() != reflect.Interface {
 						n := rv.Len()
+
 						v2 := reflect.MakeSlice(
 							reflect.SliceOf(reflect.TypeFor[any]()), n, n,
 						)
 						for e := range n {
 							v2.Index(e).Set(rv.Index(e))
 						}
+
 						metadata[claim] = v2.Interface()
 					}
 				}
 			}
 		}
+
 		idtoken.Metadata, _ = structpb.NewStruct(metadata)
 	}
 

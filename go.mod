@@ -111,7 +111,7 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/webitel/webitel-go-kit/infra/discovery v0.0.0-20260602143553-df89d5e34680
-	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7
+	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7 // indirect
 	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.64.0
 	go.uber.org/dig v1.19.0 // indirect

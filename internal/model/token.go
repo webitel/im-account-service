@@ -43,6 +43,7 @@ func (e *AccessToken) Verify(date time.Time) error {
 	if e == nil || e.Token == "" {
 		return ErrTokenIsInvalid
 	}
+
 	if date.IsZero() {
 		date = LocalTime.Now()
 	}
@@ -99,16 +100,20 @@ func (gen GenerateOptions) Generate(opts ...GenerateOption) (grant AccessToken, 
 	for _, option := range gen.GenOpts {
 		option(&req) // default
 	}
+
 	for _, option := range opts {
 		option(&req) // request
 	}
+
 	if req.NotBefore.IsZero() {
 		req.NotBefore = LocalTime.Now()
 	}
+
 	token, err := GenerateSecureToken(gen.Length)
 	if err != nil {
 		return grant, err
 	}
+
 	grant = AccessToken{
 		Date:  req.NotBefore,
 		Type:  cmp.Or(gen.Type, "bearer"),
@@ -121,6 +126,7 @@ func (gen GenerateOptions) Generate(opts ...GenerateOption) (grant AccessToken, 
 		expiry := grant.Date.Add(gen.Expires)
 		grant.Expires = &expiry
 	}
+
 	if !req.NoRefresh {
 		// refresh_token policy defined ?
 		refresh := gen.Refresh
@@ -142,11 +148,14 @@ func GenerateSecureToken(length int) (string, error) {
 	if length < 16 {
 		length = 16
 	}
+
 	codec := base64.RawURLEncoding
 	bin := make([]byte, codec.EncodedLen(length))
+
 	_, err := rand.Read(bin)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate random bytes: %w", err)
 	}
+
 	return codec.EncodeToString(bin), nil
 }
