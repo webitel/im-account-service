@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/spf13/pflag"
 
@@ -26,6 +27,7 @@ func startAsSystemdUnit(t *testing.T, creds map[string]string) string {
 		"REDIS_PASSWORD", "REDIS_PASSWORD_FILE",
 		"PUBSUB_URL", "PUBSUB_URL_FILE",
 		"SERVICE_CONN_KEY", "SERVICE_CONN_CLIENT_KEY",
+		"RECAPTCHA_URL", "RECAPTCHA_TIMEOUT",
 	} {
 		t.Setenv(env, "")
 		os.Unsetenv(env)
@@ -89,5 +91,49 @@ func TestLoadServerConfigPlainSecretShadowingCredentialFails(t *testing.T) {
 	_, err := config.LoadServerConfig()
 	if !errors.Is(err, secret.ErrConflict) {
 		t.Fatalf("want secret.ErrConflict, got %v", err)
+	}
+}
+
+func TestLoadServerConfigRecaptchaDefaults(t *testing.T) {
+	startAsSystemdUnit(t, map[string]string{
+		"postgres.dsn":     "postgres://db.example.com/im_test",
+		"pubsub.url":       "amqp://mq.example.com/",
+		"service.conn.key": "test-only-key",
+	})
+	t.Setenv("SERVICE_CONN_CA", "/etc/test/ca.crt")
+	t.Setenv("SERVICE_CONN_CERT", "/etc/test/service.crt")
+
+	cfg, err := config.LoadServerConfig()
+	if err != nil {
+		t.Fatalf("LoadServerConfig: %v", err)
+	}
+	if want := "https://www.google.com/recaptcha/api/siteverify"; cfg.Recaptcha.URL != want {
+		t.Errorf("recaptcha.url: got %q, want %q", cfg.Recaptcha.URL, want)
+	}
+	if cfg.Recaptcha.Timeout != 5*time.Second {
+		t.Errorf("recaptcha.timeout: got %v, want 5s", cfg.Recaptcha.Timeout)
+	}
+}
+
+func TestLoadServerConfigRecaptchaFromEnv(t *testing.T) {
+	startAsSystemdUnit(t, map[string]string{
+		"postgres.dsn":     "postgres://db.example.com/im_test",
+		"pubsub.url":       "amqp://mq.example.com/",
+		"service.conn.key": "test-only-key",
+	})
+	t.Setenv("SERVICE_CONN_CA", "/etc/test/ca.crt")
+	t.Setenv("SERVICE_CONN_CERT", "/etc/test/service.crt")
+	t.Setenv("RECAPTCHA_URL", "http://127.0.0.1:9/verify")
+	t.Setenv("RECAPTCHA_TIMEOUT", "2s")
+
+	cfg, err := config.LoadServerConfig()
+	if err != nil {
+		t.Fatalf("LoadServerConfig: %v", err)
+	}
+	if cfg.Recaptcha.URL != "http://127.0.0.1:9/verify" {
+		t.Errorf("recaptcha.url: got %q", cfg.Recaptcha.URL)
+	}
+	if cfg.Recaptcha.Timeout != 2*time.Second {
+		t.Errorf("recaptcha.timeout: got %v, want 2s", cfg.Recaptcha.Timeout)
 	}
 }

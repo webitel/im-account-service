@@ -5,6 +5,7 @@ import (
 
 	// grpc_srv "github.com/webitel/im-account-service/infra/server/grpc"
 	broker "github.com/webitel/im-account-service/infra/pubsub"
+	"github.com/webitel/im-account-service/internal/client/recaptcha"
 	webitel "github.com/webitel/im-account-service/internal/client/webitel/auth"
 	"github.com/webitel/im-account-service/internal/store"
 	cspb "github.com/webitel/im-account-service/proto/gen/im/service/contact/v1"
@@ -24,5 +25,7 @@ type Options struct {
 
 	Webitel  *webitel.Client
 	Contacts cspb.ContactsClient
+
+	Recaptcha recaptcha.Verifier
 
 }

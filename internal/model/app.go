@@ -54,6 +54,7 @@ func NewApplication(input *v1.InputApp) *Application {
 		Contacts:            input.GetContacts(),
 		AllowSystemMessages: input.GetAllowSystemMessages(),
 		AllowContacts:       normalizeContactAllowList(input.GetAllowContacts()),
+		Captcha:             normalizeAppCaptcha(input.GetCaptcha()),
 		Type:                AppTypeOrDefault(input.GetType()),
 	}
 

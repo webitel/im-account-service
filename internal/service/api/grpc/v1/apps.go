@@ -54,10 +54,25 @@ func (c *ApplicationService) SearchApps(ctx context.Context, req *impb.SearchApp
 	}
 
 	for _, row := range list.Data {
-		res.Data = append(res.Data, row.Proto())
+		res.Data = append(res.Data, maskAppSecrets(row.Proto()))
 	}
 
 	return res, nil
+}
+
+// Mutates app in place, so it must be a copy (row.Proto() clones).
+// Push credentials and send_update.token are kept on purpose: im-delivery-service
+// reads them from SearchApps to deliver notifications.
+func maskAppSecrets(app *impb.Application) *impb.Application {
+	if c := app.GetCaptcha(); c != nil {
+		c.Secret = ""
+	}
+
+	if s := app.GetService(); s != nil {
+		s.Secret = ""
+	}
+
+	return app
 }
 
 func (c *ApplicationService) DeleteApps(ctx context.Context, req *impb.DeleteAppRequest) (*impb.ApplicationList, error) {
@@ -84,7 +99,7 @@ func (c *ApplicationService) CreateApp(ctx context.Context, req *impb.CreateAppR
 		return nil, err
 	}
 
-	return app.Proto(), nil
+	return maskAppSecrets(app.Proto()), nil
 }
 
 // NOTE: when implemented, must call model.ValidateInputApp(req.GetApp()) before persisting.

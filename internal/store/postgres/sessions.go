@@ -480,7 +480,7 @@ func (c *SessionStore) Update(ctx context.Context, session *model.Authorization)
 		, "name" = @name
 		, user_agent = @user_agent
 		, contact_id = @contact_id
-		, metadata = w.metadata || @metadata
+		, metadata = NULLIF(COALESCE(w.metadata, '{}'::jsonb) || COALESCE(@metadata::jsonb, '{}'::jsonb), '{}'::jsonb)
 		WHERE id = @id AND device_id = @device_id
 		RETURNING *
 	)
