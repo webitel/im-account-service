@@ -455,7 +455,8 @@ func (h *dumpHandler) onRpcHeader(ctx context.Context, event *stats.InHeader) {
 		case "authorization",
 			"x-webitel-access",
 			"x-webitel-device",
-			"x-webitel-client":
+			"x-webitel-client",
+			"x-webitel-captcha":
 			{
 				if n := len(vs); n > 0 {
 					v2 := slices.Clone(vs)
@@ -611,7 +612,8 @@ func (h *dumpHandler) onRpcData(ctx context.Context, event *stats.InPayload) {
 		case "authorization",
 			"x-webitel-access",
 			"x-webitel-device",
-			"x-webitel-client":
+			"x-webitel-client",
+			"x-webitel-captcha":
 			{
 				if n := len(vs); n > 0 {
 					v2 := slices.Clone(vs)
@@ -844,7 +846,8 @@ func (h *dumpHandler) onOutData(ctx context.Context, event *stats.OutPayload) {
 		case "authorization",
 			"x-webitel-access",
 			"x-webitel-device",
-			"x-webitel-client":
+			"x-webitel-client",
+			"x-webitel-captcha":
 			{
 				if n := len(vs); n > 0 {
 					v2 := slices.Clone(vs)

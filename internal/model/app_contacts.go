@@ -12,9 +12,13 @@ import (
 
 // ValidateInputApp validates InputApp constraints that the proto declares via
 // protovalidate but this service does not enforce automatically (no protovalidate
-// interceptor is registered).
+// interceptor is registered): the allow_contacts rules and the captcha settings.
 func ValidateInputApp(input *v1.InputApp) error {
-	return ValidateContactAllowList(input.GetAllowContacts())
+	if err := ValidateContactAllowList(input.GetAllowContacts()); err != nil {
+		return err
+	}
+
+	return ValidateAppCaptcha(input.GetCaptcha())
 }
 
 // ValidateContactAllowList enforces the rules declared on ContactAllowList and

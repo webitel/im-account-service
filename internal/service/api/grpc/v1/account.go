@@ -869,16 +869,6 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 	// Validate Contact.Iss VIA client App used to login ...
 	// err = rpc.App.NewContact(contact)
 
-	// Save ( Update | Create ) given Contact profile as latest known source
-	err = api.Service.AddContact(rpc.Context, contact)
-	if err != nil {
-		// Failed to save Contact latest source
-		return rpc, err
-	}
-
-	// // Authorize Contact for Login
-	// rpc.Contact = profile
-
 	// previous session (port) resolved ?
 	var trace []any
 	hint := rpc.Session
@@ -913,6 +903,48 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 			trace = append(trace, "hint.session.id", hint.Id)
 		}
 	}
+
+	// Captcha runs after NewContact, so an untrusted issuer fails without a Google call,
+	// and before AddContact, so nothing is written until it passes.
+	captcha, verified, err := verifyCaptcha(rpc.Context, rpc.Service.Options().Recaptcha, captchaInput{
+		Settings: rpc.App.Captcha(),
+		Session:  hint,
+		Iss:      contact.Iss,
+		Sub:      contact.Sub,
+		Token:    model.GetHeaderH2(rpc.Header, model.H2_X_Captcha),
+		RemoteIP: netIPstring(rpc.Device.IP()),
+		Now:      rpc.Date,
+	})
+	if err != nil {
+		logArgs := append(trace, "error", err)
+		if verified != nil {
+			logArgs = append(logArgs,
+				"captcha.score", verified.Score,
+				"captcha.action", verified.Action,
+				"captcha.hostname", verified.Hostname,
+				"captcha.error-codes", verified.ErrorCodes,
+			)
+		}
+		rpc.Warn("[ Authorization ] Captcha REJECTED", logArgs...)
+		return rpc, err
+	}
+	if captcha != nil {
+		rpc.Info("[ Authorization ] Captcha VERIFIED", append(trace,
+			"captcha.score", captcha.Score,
+			"captcha.action", captcha.Action,
+			"captcha.hostname", captcha.Hostname,
+		)...)
+	}
+
+	// Save ( Update | Create ) given Contact profile as latest known source
+	err = api.Service.AddContact(rpc.Context, contact)
+	if err != nil {
+		// Failed to save Contact latest source
+		return rpc, err
+	}
+
+	// // Authorize Contact for Login
+	// rpc.Contact = profile
 
 	// if hint != nil {
 	// 	// CHECK: has [access_token] grant been already assigned & active ?
@@ -1120,6 +1152,15 @@ func (api *AccountService) GrantTokenForUserIdentity(ctx context.Context, req *v
 		}),
 	)
 	// }
+
+	// Written only here, after all checks passed, so a rejected login never mutates
+	// the cached hint session.
+	if captcha != nil {
+		if session.Metadata == nil {
+			session.Metadata = make(map[string]any)
+		}
+		session.Metadata[captchaMetadataKey] = captcha.metadata()
+	}
 
 	if hint == nil {
 		// CREATE

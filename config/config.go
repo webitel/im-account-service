@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
@@ -13,13 +15,20 @@ import (
 )
 
 type Config struct {
-	Service  ServiceConfig      `mapstructure:"service"`
-	Log      appconfig.Log      `mapstructure:"log"`
-	Postgres appconfig.Postgres `mapstructure:"postgres"`
-	Redis    appconfig.Redis    `mapstructure:"redis"`
-	Consul   appconfig.Consul   `mapstructure:"consul"`
-	Pubsub   appconfig.Pubsub   `mapstructure:"pubsub"`
-	Profiler appconfig.Profiler `mapstructure:"profiler"`
+	Service   ServiceConfig      `mapstructure:"service"`
+	Log       appconfig.Log      `mapstructure:"log"`
+	Postgres  appconfig.Postgres `mapstructure:"postgres"`
+	Redis     appconfig.Redis    `mapstructure:"redis"`
+	Consul    appconfig.Consul   `mapstructure:"consul"`
+	Pubsub    appconfig.Pubsub   `mapstructure:"pubsub"`
+	Profiler  appconfig.Profiler `mapstructure:"profiler"`
+	Recaptcha RecaptchaConfig    `mapstructure:"recaptcha"`
+}
+
+// The secret is per application (Application.captcha), not global.
+type RecaptchaConfig struct {
+	URL     string        `mapstructure:"url"`
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 type ServiceConfig struct {
@@ -28,7 +37,7 @@ type ServiceConfig struct {
 }
 
 // LoadServerConfig loads the full configuration required by the gRPC server.
-// Sections: Log, Postgres, Redis, Consul, Pubsub, Profiler.
+// Sections: Log, Postgres, Redis, Consul, Pubsub, Profiler, Recaptcha.
 func LoadServerConfig() (*Config, error) {
 	loader := appconfig.NewLoader(appconfig.Sections{
 		Log:      true,
@@ -96,6 +105,8 @@ func LoadMigrateConfig() (*Config, error) {
 func registerServiceFlags() {
 	pflag.String("service.addr", "localhost:8080", "gRPC listen address")
 	appconfig.RegisterGRPCConnFlags(pflag.CommandLine, "service.conn", true)
+	pflag.String("recaptcha.url", "https://www.google.com/recaptcha/api/siteverify", "Google reCAPTCHA siteverify URL")
+	pflag.Duration("recaptcha.timeout", 5*time.Second, "Google reCAPTCHA siteverify request timeout")
 }
 
 func (c *Config) validate() error {
@@ -116,6 +127,14 @@ func (c *Config) validate() error {
 	}
 	if c.Consul.Addr == "" {
 		return fmt.Errorf("config: consul.addr is required")
+	}
+
+	if c.Recaptcha.Timeout <= 0 {
+		return fmt.Errorf("config: recaptcha.timeout must be positive")
+	}
+
+	if u, err := url.Parse(c.Recaptcha.URL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return fmt.Errorf("config: recaptcha.url must be an absolute http(s) URL")
 	}
 	if c.Pubsub.URL == "" {
 		return errors.New("config: pubsub.url is required (use --pubsub.url, PUBSUB_URL, PUBSUB_URL_FILE or a pubsub.url systemd credential)")

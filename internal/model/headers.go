@@ -26,6 +26,8 @@ const (
 	H1_X_Client_ID = "X-Webitel-Client"
 	// Webitel [User] authorization token header
 	H1_X_Access_Token = "X-Webitel-Access"
+	// Webitel [Captcha] Google reCAPTCHA v3 response token ; header
+	H1_X_Captcha = "X-Webitel-Captcha"
 	// Native [Service] authorization
 	H1_From_Service    = "From-Service"
 	H1_From_Service_ID = "From-Service-Id"
@@ -60,6 +62,7 @@ const (
 	H2_X_Device_ID    = "x-webitel-device" // Webitel [Device] [subscriber_id] client-self identification token header
 	H2_X_Client_ID    = "x-webitel-client" // Webitel [Application] [client_id] authorization token header
 	H2_X_Access_Token = "x-webitel-access" // Webitel [Messaging] session authorization token header
+	H2_X_Captcha      = "x-webitel-captcha" // Google reCAPTCHA v3 response token header (Account/Token)
 )
 
 func Coalesce[T comparable](vs ...T) T {

@@ -36,3 +36,7 @@ profiler:
   addr: "127.0.0.1:6060"
   mutex_fraction: 1
   block_rate: 1
+
+# recaptcha:
+#   url: "https://www.google.com/recaptcha/api/siteverify"
+#   timeout: "5s"
